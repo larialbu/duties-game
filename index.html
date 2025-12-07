@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jogo Eco - Missão Reciclagem (Corrigido)</title>
+  <style>
+    /* (mantive seu CSS original, com leves ajustes se necessário) */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:Arial, sans-serif;
+      background:linear-gradient(135deg,#87CEEB 0%,#E0F6FF 100%);
+      display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;
+    }
+    #gameContainer{position:relative;width:1200px;height:600px;background:linear-gradient(to bottom,#87CEEB 0%,#90EE90 70%,#228B22 100%);border:5px solid #333;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.3);overflow:hidden}
+    canvas{display:block;background:inherit}
+    #ui{position:absolute;top:20px;left:20px;right:20px;color:white;font-size:18px;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5);z-index:10}
+    .ui-row{display:flex;justify-content:space-between;margin-bottom:15px;background:rgba(0,0,0,0.3);padding:10px 15px;border-radius:5px}
+    #dialog{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.9);color:white;padding:20px 30px;border-radius:10px;max-width:600px;text-align:center;z-index:20;border:3px solid #FFD700;display:none}
+    #dialog.show{display:block;animation:slideUp .3s ease-out}
+    @keyframes slideUp{from{transform:translateX(-50%) translateY(100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+    #bossBar{position:absolute;top:80px;right:20px;background:rgba(0,0,0,0.3);padding:10px;border-radius:5px;display:none;z-index:15}
+    #bossBar.show{display:block}
+    .health-bar{width:200px;height:30px;background:#333;border:2px solid white;border-radius:5px;overflow:hidden;margin-top:5px}
+    .health-fill{height:100%;background:linear-gradient(90deg,#FF6B6B,#FF8C42);width:100%;transition:width 0.2s}
+    .instructions{position:absolute;bottom:20px;right:20px;background:rgba(0,0,0,0.7);color:white;padding:15px;border-radius:5px;font-size:14px;text-align:right;max-width:250px;z-index:5}
+    .key{background:#FFD700;color:black;padding:2px 6px;border-radius:3px;font-weight:bold;margin:0 2px}
+    #gameOver{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:white;padding:40px;border-radius:10px;text-align:center;display:none;z-index:100;border:5px solid #FFD700}
+    #gameOver.show{display:block;animation:zoomIn .4s ease-out}
+    @keyframes zoomIn{from{transform:translate(-50%,-50%) scale(.5);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+    #gameOver h1{font-size:48px;margin-bottom:20px}
+    #gameOver p{font-size:24px;margin-bottom:30px}
+    #gameOver button{background:#4CAF50;color:white;border:none;padding:12px 30px;font-size:18px;border-radius:5px;cursor:pointer}
+    #gameOver button:hover{background:#45a049}
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+
+    <div id="ui">
+      <div class="ui-row">
+        <span>Erros: <span id="errorCount">0</span>/3</span>
+        <span id="itemCount">Item: Nenhum</span>
+        <span>Coletados: <span id="collectedCount">0</span>/5</span>
+      </div>
+    </div>
+
+    <div id="playerBar" class="health-bar" style="position:absolute; top: 80px; left: 20px; display:none;">
+        <div class="health-fill" id="playerHealth" style="background: linear-gradient(90deg, #4CAF50, #8BC34A);"></div>
+    </div>
+
+    <div id="bossBar">
+      <div style="color:white;margin-bottom:5px;">👹 Mega-Lixeira Caótica</div>
+      <div class="health-bar"><div class="health-fill" id="bossHealth"></div></div>
+    </div>
+
+    <div id="dialog"></div>
+
+    <div id="gameOver">
+      <h1 id="gameOverTitle">Fase Completa!</h1>
+      <p id="gameOverMessage">Parabéns! Você completou a missão!</p>
+      <button onclick="location.reload()">Jogar Novamente</button>
+    </div>
+
+    <div class="instructions">
+      <p><span class="key">W</span> Pular</p>
+      <p><span class="key">A</span> <span class="key">D</span> Mover</p>
+      <p><span class="key">E</span> Interagir / Depositar</p>
+      <p><span class="key">F</span> Atirar (na batalha)</p>
+    </div>
+  </div>
+
+  <script>
+    // ====== CONFIG ======
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const GRAVITY = 0.5;
+    const GROUND_Y = 480;
+    const JUMP_FORCE = -12;
+
+    const GAME_STATE = { PLAYING:'playing', BOSS_BATTLE:'boss_battle', DIALOGUE:'dialogue', GAME_OVER:'game_over' };
+    let gameState = GAME_STATE.DIALOGUE;
+    let errors = 0;
+    let itemsCollected = 0;
+
+    const itemEmojis = {
+      paper: '📄', // folha de papel
+      plastic: '🧴', // garrafa de plástico
+      glass: '🍾', // garrafa de vidro
+      metal: '🥫', // lata de metal
+      organic: '🍎'  // maçã
+    };
+
+    // ====== CLASSES ======
+    class Player {
+      constructor(x,y){
+        this.x=x; this.y=y; this.width=40; this.height=50;
+        this.velocityY=0; this.velocityX=0; this.speed=5; this.direction=1;
+        this.isMoving=false; this.currentItem=null; this.animationFrame=0;
+        this.isOnGround = true;
+        this.health = 100; this.maxHealth = 100;
+      }
+      update(keys){
+        this.velocityX = 0; this.isMoving = false;
+        if (keys['a']||keys['A']){ this.velocityX = -this.speed; this.direction = -1; this.isMoving = true; }
+        if (keys['d']||keys['D']){ this.velocityX = this.speed; this.direction = 1; this.isMoving = true; }
+        
+        if ((keys['w'] || keys['W']) && this.isOnGround) {
+            this.jump();
+        }
+
+        this.x += this.velocityX;
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+        
+        this.velocityY += GRAVITY;
+        this.y += this.velocityY;
+        this.isOnGround = false;
+        if (this.y + this.height >= GROUND_Y){ this.y = GROUND_Y - this.height; this.velocityY = 0; this.isOnGround = true; }
+        
+        if (this.isMoving && this.isOnGround) this.animationFrame += 0.2;
+      }
+      jump() {
+        this.velocityY = JUMP_FORCE;
+        this.isOnGround = false;
+      }
+      draw(){
+        ctx.save();
+        // Flip direction
+        if(this.direction === -1) {
+          ctx.translate(this.x + this.width, this.y);
+          ctx.scale(-1, 1);
+          ctx.translate(-this.x, -this.y);
+        }
+
+        // corpo
+        ctx.fillStyle = '#3a8d9d'; // Azul escuro
+        ctx.fillRect(this.x + 10, this.y + 20, 20, 25);
+        // cabeça
+        ctx.fillStyle = '#ffc3a0'; // Tom de pele
+        ctx.beginPath(); ctx.arc(this.x + 20, this.y + 10, 12, 0, Math.PI * 2); ctx.fill();
+        // cabelo
+        ctx.fillStyle = '#4a3d35';
+        ctx.beginPath(); ctx.arc(this.x + 20, this.y + 8, 12, Math.PI, Math.PI*2); ctx.fill();
+        // olhos
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 1, 0, Math.PI * 2); ctx.fill();
+
+        // pernas animadas
+        let legOffset = 0;
+        if(this.isOnGround) {
+            legOffset = Math.sin(this.animationFrame) * 5;
+        }
+        ctx.fillStyle = '#3a8d9d';
+        ctx.fillRect(this.x + 10, this.y + 45, 8, 10 - legOffset);
+        ctx.fillRect(this.x + 22, this.y + 45, 8, 10 + legOffset);
+        
+        ctx.restore();
+
+        // se estiver carregando item, desenha acima do player
+        if (this.currentItem){
+          drawItem(this.x + this.width/2, this.y - 20, this.currentItem.type);
+        }
+      }
+      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
+      pickItem(item){
+        if (!this.currentItem){
+          this.currentItem = item;
+          return true;
+        }
+        return false;
+      }
+      dropItem(){
+        const dropped = this.currentItem;
+        this.currentItem = null;
+        return dropped;
+      }
+      takeDamage(amount) {
+          this.health -= amount;
+          if(this.health < 0) this.health = 0;
+          updatePlayerHealth();
+      }
+    }
+
+    class Trash {
+      constructor(x,y,type){
+        this.x=x; this.y=y; this.type=type; this.width=30; this.height=30;
+        this.collected=false; this.delivered=false;
+      }
+      draw(){
+        if (!this.collected && !this.delivered){
+          drawItem(this.x, this.y, this.type);
+        }
+      }
+      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
+    }
+
+    class Bin {
+      constructor(x,y,correctType){
+        this.x=x; this.y=y; this.width=50; this.height=70; this.correctType=correctType; this.color=getBinColor(correctType);
+      }
+      draw(){
+        // corpo da lixeira
+        ctx.fillStyle=this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        // Detalhe da tampa
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath(); ctx.rect(this.x, this.y, this.width, 10); ctx.fill();
+
+        // Abertura
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x + 10, this.y + 15, this.width - 20, 5);
+
+        // Símbolo de reciclagem
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('♻', this.x + this.width/2, this.y + 45);
+
+        // Label
+        ctx.fillStyle='white'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+        ctx.fillText(getBinLabel(this.correctType), this.x+this.width/2, this.y+this.height-10);
+      }
+      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
+    }
+
+    class NPC {
+      constructor(x,y){ this.x=x; this.y=y; this.width=40; this.height=55; this.animationFrame=0; }
+      update(){ this.animationFrame += 0.05; }
+      draw(){
+        const bobbing = Math.sin(this.animationFrame)*2;
+        // Cabeça
+        ctx.fillStyle = '#ffc3a0';
+        ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 10 + bobbing, 12, 0, Math.PI*2); ctx.fill();
+        // Cabelo
+        ctx.fillStyle = '#7a4d35';
+        ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 8 + bobbing, 12, Math.PI, Math.PI*2); ctx.fill();
+        // Corpo
+        ctx.fillStyle = '#9bdd9d';
+        ctx.fillRect(this.x + 10, this.y + 22 + bobbing, 20, 28);
+        // "E" de interação
+        ctx.fillStyle='#FFD700'; ctx.font='bold 20px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('E', this.x+this.width/2, this.y-10+bobbing);
+      }
+      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
+    }
+
+    class Boss {
+      constructor(){
+        this.width=120; this.height=140;
+        this.x=canvas.width - this.width - 50; this.y=GROUND_Y - this.height;
+        this.health=100; this.maxHealth=100; this.animationFrame=0; this.attackCooldown=120; // Starts with a delay
+      }
+      update(){
+        this.animationFrame += 0.05;
+        if (this.attackCooldown > 0) {
+          this.attackCooldown--;
+        } else {
+          // Shoots a projectile towards the player
+          const projectile = new Projectile(this.x, this.y + this.height/2, player.x, player.y, 'boss');
+          projectiles.push(projectile);
+          this.attackCooldown = 150 + Math.random() * 100; // Reset cooldown
+        }
+      }
+      draw(){
+        const shake = Math.sin(this.animationFrame*2)*3;
+        ctx.fillStyle='#6b4a3e'; ctx.fillRect(this.x+shake, this.y, this.width, this.height);
+        ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.strokeRect(this.x+shake, this.y, this.width, this.height);
+        // "olhos"
+        ctx.fillStyle='#FF0000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
+        // "boca" (grade)
+        ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(this.x+20+shake, this.y+90); ctx.lineTo(this.x+100+shake, this.y+90); ctx.stroke();
+        for(let i=0; i<6; i++) {
+          ctx.fillRect(this.x+20+i*15+shake, this.y+90, 4, 20);
+        }
+      }
+      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
+      takeDamage(amount){ this.health -= amount; if (this.health < 0) this.health = 0; }
+      isAlive(){ return this.health > 0; }
+    }
+    
+    class Projectile {
+        constructor(startX, startY, targetX, targetY, owner) {
+            this.x = startX;
+            this.y = startY;
+            this.width = 20;
+            this.height = 20;
+            this.owner = owner; // 'player' or 'boss'
+            this.type = owner === 'player' ? player.currentItem.type : ['paper', 'plastic', 'metal'][Math.floor(Math.random()*3)];
+            
+            this.speed = 8;
+            if(owner === 'player') {
+                this.velocityX = player.direction * this.speed;
+                this.velocityY = 0;
+            } else {
+                const angle = Math.atan2(targetY - startY, targetX - startX);
+                this.velocityX = Math.cos(angle) * this.speed;
+                this.velocityY = Math.sin(angle) * this.speed;
+            }
+        }
+
+        update() {
+            this.x += this.velocityX;
+            this.y += this.velocityY;
+        }
+
+        draw() {
+            drawItem(this.x, this.y, this.type);
+        }
+        
+        getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
+    }
+
+    // ====== AUX ======
+    function drawItem(x,y,type){
+      const colors = { paper:'#FFF8DC', plastic:'#FF1493', glass:'#87CEEB', metal:'#C0C0C0', organic:'#8B4513' };
+      ctx.fillStyle = colors[type] || '#999';
+      ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth=2; ctx.stroke();
+
+      const emoji = itemEmojis[type] || '?';
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, x, y);
+    }
+
+    function getBinColor(type){ const colors = { paper:'#1E90FF', plastic:'#DC143C', glass:'#228B22', metal:'#FFD700', organic:'#8B4513' }; return colors[type]; }
+    function getBinLabel(type){ const labels = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal', organic:'Orgânico' }; return labels[type]; }
+    function checkCollision(box1, box2){ return box1.x < box2.x + box2.width && box1.x + box1.width > box2.x && box1.y < box2.y + box2.height && box1.y + box1.height > box2.y; }
+    function showDialogue(text){ const dialog=document.getElementById('dialog'); dialog.textContent = text; dialog.classList.add('show'); }
+    function hideDialogue(){ document.getElementById('dialog').classList.remove('show'); }
+    function showGameOver(victory, message){ gameState = GAME_STATE.GAME_OVER; const overlay=document.getElementById('gameOver'); const title=document.getElementById('gameOverTitle'); const text=document.getElementById('gameOverMessage'); if (victory){ title.textContent='🎉 Fase Completa!'; title.style.color='#4CAF50'; } else { title.textContent='💣 Missão Falhada!'; title.style.color='#FF6B6B'; } text.textContent = message; overlay.classList.add('show'); }
+
+    // ====== INICIALIZAÇÃO ======
+    const player = new Player(100, GROUND_Y - 50);
+    const npc = new NPC(1050, GROUND_Y - 45);
+
+    let trash = [
+      new Trash(250, GROUND_Y - 25, 'paper'),
+      new Trash(450, GROUND_Y - 25, 'plastic'),
+      new Trash(650, GROUND_Y - 25, 'glass'),
+      new Trash(850, GROUND_Y - 25, 'metal'),
+      new Trash(350, GROUND_Y - 25, 'organic')
+    ];
+
+    let bins = [
+      new Bin(100, GROUND_Y - 70, 'paper'),
+      new Bin(250, GROUND_Y - 70, 'plastic'),
+      new Bin(400, GROUND_Y - 70, 'glass'),
+      new Bin(550, GROUND_Y - 70, 'metal'),
+      new Bin(700, GROUND_Y - 70, 'organic')
+    ];
+
+    let boss = null;
+    let projectiles = [];
+    let trashSpawnTimer = 0;
+    let dialogues = [
+      '🌍 Olá! Sou o Guia Ambiental!',
+      'A poluição está ameaçando nossa linda floresta.',
+      'Sua missão é reciclar o lixo corretamente.',
+      'Pegue cada item e coloque na lixeira certa.',
+      'CUIDADO! 3 erros despertam a FÚRIA DA NATUREZA!',
+      'Use <A> e <D> para mover, <W> para pular e <E> para interagir.',
+      'Na batalha, use <F> para ATIRAR o lixo no chefe!',
+      'Boa sorte, herói da reciclagem!'
+    ];
+    let currentDialogue = 0;
+
+    // teclas
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+
+      // abrir/avançar diálogo
+      if ((e.key === 'e' || e.key === 'E') && gameState === GAME_STATE.DIALOGUE) {
+        currentDialogue++;
+        if (currentDialogue < dialogues.length) {
+          showDialogue(dialogues[currentDialogue]);
+        } else {
+          hideDialogue();
+          gameState = GAME_STATE.PLAYING;
+        }
+        return;
+      }
+      
+      // Atirar no Boss
+      if ((e.key === 'f' || e.key === 'F') && gameState === GAME_STATE.BOSS_BATTLE) {
+          if(player.currentItem && boss && boss.isAlive()) {
+              const projectile = new Projectile(player.x + player.width/2, player.y + player.height/2, null, null, 'player');
+              projectiles.push(projectile);
+              player.dropItem();
+              updateUI();
+          }
+      }
+
+      // Interagir (pegar/depositar)
+      if ((e.key === 'e' || e.key === 'E')) {
+        if(gameState === GAME_STATE.PLAYING) {
+            // 1) se próximo a NPC e já coletou tudo -> finaliza
+            if (checkCollision(player.getCollisionBox(), npc.getCollisionBox())) {
+              if (itemsCollected >= 5) {
+                showGameOver(true, 'Parabéns! Você limpou toda a floresta!');
+                return;
+              }
+            }
+    
+            // 2) pegar lixo
+            for (let t of trash) {
+              if (!t.collected && !t.delivered && checkCollision(player.getCollisionBox(), t.getCollisionBox())) {
+                if (player.pickItem(t)) {
+                  t.collected = true;
+                  updateUI();
+                  return;
+                }
+              }
+            }
+    
+            // 3) depositar
+            if (player.currentItem) {
+              for (let b of bins) {
+                const distance = Math.hypot((player.x + player.width/2) - (b.x + b.width/2), (player.y + player.height/2) - (b.y + b.height/2));
+                if (distance < 60) {
+                  if (player.currentItem.type === b.correctType) {
+                    const deliveredTrash = player.dropItem();
+                    deliveredTrash.delivered = true;
+                    itemsCollected++;
+                    updateUI();
+                    if (itemsCollected >= 5) {
+                      showGameOver(true, 'Parabéns! Você limpou toda a floresta!');
+                    }
+                  } else {
+                    const dropped = player.dropItem();
+                    if(dropped) {
+                      dropped.collected = false;
+                      dropped.x = b.x + b.width / 2;
+                      dropped.y = b.y - 30;
+                    }
+                    errors++;
+                    updateUI();
+                    if (errors >= 3 && gameState !== GAME_STATE.BOSS_BATTLE) {
+                      gameState = GAME_STATE.BOSS_BATTLE;
+                      boss = new Boss();
+                      trash = []; // Limpa o lixo da fase normal
+                      bins = [];
+                      showDialogue('👹 A MEGA-LIXEIRA CAÓTICA APARECEU! Use o lixo para derrotá-la!');
+                      document.getElementById('bossBar').classList.add('show');
+                      document.getElementById('playerBar').style.display = 'block';
+                      updateBossHealth();
+                      updatePlayerHealth();
+                    }
+                  }
+                  return;
+                }
+              }
+            }
+        } else if (gameState === GAME_STATE.BOSS_BATTLE) {
+            // Pegar lixo durante a batalha
+            for (let t of trash) {
+              if (!t.collected && checkCollision(player.getCollisionBox(), t.getCollisionBox())) {
+                if (player.pickItem(t)) {
+                  t.collected = true;
+                  // Remove o lixo da lista principal para não ser desenhado mais
+                  trash = trash.filter(item => item !== t);
+                  updateUI();
+                  return;
+                }
+              }
+            }
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+    function updateUI(){
+      document.getElementById('errorCount').textContent = errors;
+      document.getElementById('collectedCount').textContent = itemsCollected;
+      let itemText = 'Item: Nenhum';
+      if (player.currentItem){
+        const names = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal', organic:'Orgânico' };
+        itemText = 'Item: ' + names[player.currentItem.type];
+      }
+      document.getElementById('itemCount').textContent = itemText;
+    }
+
+    function updateBossHealth(){
+      if (boss){
+        const healthPercent = (boss.health / boss.maxHealth) * 100;
+        document.getElementById('bossHealth').style.width = healthPercent + '%';
+      }
+    }
+    
+    function updatePlayerHealth(){
+      const healthPercent = (player.health / player.maxHealth) * 100;
+      document.getElementById('playerHealth').style.width = healthPercent + '%';
+    }
+    
+    // Nuvens para o cenário
+    let clouds = [
+        {x: 100, y: 80, size: 50, speed: 0.2},
+        {x: 400, y: 120, size: 70, speed: 0.3},
+        {x: 800, y: 90, size: 60, speed: 0.25},
+        {x: 1100, y: 150, size: 40, speed: 0.4},
+    ];
+
+    function drawCloud(cloud) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.beginPath();
+        ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+        ctx.arc(cloud.x + cloud.size * 0.6, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
+        ctx.arc(cloud.x - cloud.size * 0.6, cloud.y, cloud.size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    function drawTree(x, y) {
+        // Tronco
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(x, y, 20, 60);
+        // Copa
+        ctx.fillStyle = '#228B22';
+        ctx.beginPath();
+        ctx.arc(x + 10, y - 20, 40, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+
+    // ====== LOOP ======
+    function gameLoop(){
+      // fundo
+      ctx.clearRect(0,0,canvas.width,canvas.height); // Limpa a tela
+      
+      let bgGradient = ctx.createLinearGradient(0,0,0,canvas.height);
+      if(gameState === GAME_STATE.BOSS_BATTLE) {
+          bgGradient.addColorStop(0, '#4a4a4a');
+          bgGradient.addColorStop(1, '#d66d75');
+      } else {
+          bgGradient.addColorStop(0, '#87CEEB');
+          bgGradient.addColorStop(1, '#90EE90');
+      }
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      
+      // Nuvens
+      clouds.forEach(cloud => {
+          cloud.x += cloud.speed;
+          if(cloud.x - cloud.size > canvas.width) {
+              cloud.x = -cloud.size * 2;
+          }
+          drawCloud(cloud);
+      });
+
+      // Chão
+      ctx.fillStyle = gameState === GAME_STATE.BOSS_BATTLE ? '#5c4d4d' : '#6B8E23';
+      ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+      
+      // Decoração do chão
+      ctx.fillStyle = 'rgba(0,0,0,0.05)';
+      for(let i = 0; i < 20; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * canvas.width, GROUND_Y + Math.random() * (canvas.height - GROUND_Y), 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // updates
+      player.update(keys);
+
+      if (gameState === GAME_STATE.BOSS_BATTLE){
+        if(boss) boss.update();
+        
+        // Spawn de lixo (munição)
+        trashSpawnTimer--;
+        if(trashSpawnTimer <= 0) {
+            const randomX = Math.random() * (canvas.width - 100) + 50;
+            const trashTypes = ['paper', 'plastic', 'glass', 'metal', 'organic'];
+            const randomType = trashTypes[Math.floor(Math.random() * trashTypes.length)];
+            trash.push(new Trash(randomX, GROUND_Y - 25, randomType));
+            trashSpawnTimer = 200 + Math.random() * 100; // a cada ~3-5s
+        }
+      }
+      
+      // Update e draw projéteis
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+          const p = projectiles[i];
+          p.update();
+          p.draw();
+
+          // Checagem de colisão
+          if (p.owner === 'player' && boss && checkCollision(p.getCollisionBox(), boss.getCollisionBox())) {
+              boss.takeDamage(10);
+              updateBossHealth();
+              projectiles.splice(i, 1);
+              if (!boss.isAlive()) {
+                  document.getElementById('playerBar').style.display = 'none';
+                  document.getElementById('bossBar').classList.remove('show');
+                  showGameOver(true, 'Você derrotou a Mega-Lixeira Caótica e salvou a floresta!');
+                  gameState = GAME_STATE.GAME_OVER;
+              }
+          } else if (p.owner === 'boss' && checkCollision(p.getCollisionBox(), player.getCollisionBox())) {
+              player.takeDamage(20);
+              projectiles.splice(i, 1);
+              if(player.health <= 0) {
+                  showGameOver(false, "A Mega-Lixeira era forte demais! Tente novamente.");
+                  gameState = GAME_STATE.GAME_OVER;
+              }
+          }
+
+          // Remove projéteis fora da tela
+          if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+              projectiles.splice(i, 1);
+          }
+      }
+
+      // Desenha elementos
+      if (gameState === GAME_STATE.BOSS_BATTLE) {
+          if (boss) boss.draw();
+          // Desenha o lixo disponível para coleta
+          for (let t of trash) t.draw();
+      } else {
+        drawTree(150, GROUND_Y - 60);
+        drawTree(950, GROUND_Y - 60);
+        for (let t of trash) t.draw();
+        for (let b of bins) b.draw();
+        npc.draw();
+      }
+
+      player.draw();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // inicia diálogo
+    if (dialogues.length > 0) showDialogue(dialogues[0]);
+
+    updateUI();
+    gameLoop();
+  </script>
+</body>
+</html>
