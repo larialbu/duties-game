@@ -42,7 +42,7 @@
       <div class="ui-row">
         <span>Erros: <span id="errorCount">0</span>/3</span>
         <span id="itemCount">Item: Nenhum</span>
-        <span>Coletados: <span id="collectedCount">0</span>/5</span>
+        <span>Coletados: <span id="collectedCount">0</span>/4</span>
       </div>
     </div>
 
@@ -69,6 +69,19 @@
       <p><span class="key">E</span> Interagir / Depositar</p>
       <p><span class="key">F</span> Atirar (na batalha)</p>
     </div>
+    <!-- Imagem do jogador (mantida no DOM para garantir que GIF animado atualize seus frames) -->
+    <img id="playerSpriteImg" src="imagem/AUGUSTINHO.01.gif" alt="player-sprite" style="position:absolute; left:-9999px; top:-9999px; width:80px; height:70px;" aria-hidden="true" />
+    <img id="metalSpriteImg" src="imagem/lata.1.gif" alt="metal-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" />
+    <img id="npcSpriteImg" src="imagem/garii.pixel.gif" alt="npc-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:120px;" aria-hidden="true" />
+    <img id="treeImg" src="imagem/arvore.png" alt="tree-sprite" style="position:absolute; left:-9999px; top:-9999px; width:260px; height:320px;" aria-hidden="true" />
+    <img id="cloudImg" src="imagem/nuvem.png" alt="cloud-sprite" style="position:absolute; left:-9999px; top:-9999px; width:200px; height:120px;" aria-hidden="true" />
+    <img id="bin_paper_img" src="imagem/lixeira.azul-removebg-preview.png" alt="bin-paper" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
+    <img id="paperSpriteImg" src="imagem/papel.png" alt="paper-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" />
+    <img id="glassSpriteImg" src="imagem/garrafa.png" alt="glass-sprite" style="position:absolute; left:-9999px; top:-9999px; width:100px; height:130px;" aria-hidden="true" />
+    <img id="plasticSpriteImg" src="imagem/garrafa.plastico.png" alt="plastic-sprite" style="position:absolute; left:-9999px; top:-9999px;  width:100px; height:130px;" aria-hidden="true" />
+    <img id="bin_plastic_img" src="imagem/lixeira.vermelha-removebg-preview.png" alt="bin-plastic" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
+    <img id="bin_glass_img" src="imagem/lixeira.verde-removebg-preview.png" alt="bin-glass" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
+    <img id="bin_metal_img" src="imagem/lixeira.amarela-removebg-preview.png" alt="bin-metal" style="position:absolute; left:-9999px; top:-9999px; " aria-hidden="true" />
   </div>
 
   <script>
@@ -76,7 +89,8 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const GRAVITY = 0.5;
-    const GROUND_Y = 480;
+    // diminuir o valor em 5px para aumentar o gramado em 5px
+    const GROUND_Y = 475;
     const JUMP_FORCE = -12;
 
     const GAME_STATE = { PLAYING:'playing', BOSS_BATTLE:'boss_battle', DIALOGUE:'dialogue', GAME_OVER:'game_over' };
@@ -88,16 +102,31 @@
       paper: '📄', // folha de papel
       plastic: '🧴', // garrafa de plástico
       glass: '🍾', // garrafa de vidro
-      metal: '🥫', // lata de metal
-      organic: '🍎'  // maçã
+      metal: '🥫' // lata de metal
     };
+
+    // Sprites do jogador, lata e NPC (usamos as imagens presentes no DOM para garantir animação dos GIFs)
+    const playerSprite = document.getElementById('playerSpriteImg');
+    const metalSprite = document.getElementById('metalSpriteImg');
+    const npcSprite = document.getElementById('npcSpriteImg');
+    const binPaperImg = document.getElementById('bin_paper_img');
+    const paperSprite = document.getElementById('paperSpriteImg');
+    const glassSprite = document.getElementById('glassSpriteImg');
+    const plasticSprite = document.getElementById('plasticSpriteImg');
+    const binPlasticImg = document.getElementById('bin_plastic_img');
+    const binGlassImg = document.getElementById('bin_glass_img');
+    const binMetalImg = document.getElementById('bin_metal_img');
+    const treeSprite = document.getElementById('treeImg');
+    const cloudSprite = document.getElementById('cloudImg');
 
     // ====== CLASSES ======
     class Player {
       constructor(x,y){
-        this.x=x; this.y=y; this.width=40; this.height=50;
-        this.velocityY=0; this.velocityX=0; this.speed=5; this.direction=1;
-        this.isMoving=false; this.currentItem=null; this.animationFrame=0;
+        this.x = x; this.y = y; this.width = 90; this.height = 90;
+        // visual offset to make the player sit slightly lower on the ground
+        this.groundOffset = 15;
+        this.velocityY = 0; this.velocityX = 0; this.speed = 5; this.direction = 1;
+        this.isMoving = false; this.currentItem = null; this.animationFrame = 0;
         this.isOnGround = true;
         this.health = 100; this.maxHealth = 100;
       }
@@ -105,108 +134,125 @@
         this.velocityX = 0; this.isMoving = false;
         if (keys['a']||keys['A']){ this.velocityX = -this.speed; this.direction = -1; this.isMoving = true; }
         if (keys['d']||keys['D']){ this.velocityX = this.speed; this.direction = 1; this.isMoving = true; }
-        
-        if ((keys['w'] || keys['W']) && this.isOnGround) {
-            this.jump();
-        }
+        if ((keys['w'] || keys['W']) && this.isOnGround) { this.jump(); }
 
         this.x += this.velocityX;
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
-        
+
         this.velocityY += GRAVITY;
         this.y += this.velocityY;
         this.isOnGround = false;
-        if (this.y + this.height >= GROUND_Y){ this.y = GROUND_Y - this.height; this.velocityY = 0; this.isOnGround = true; }
-        
+        if (this.y + this.height >= GROUND_Y){ this.y = GROUND_Y - this.height + this.groundOffset; this.velocityY = 0; this.isOnGround = true; }
+
         if (this.isMoving && this.isOnGround) this.animationFrame += 0.2;
       }
-      jump() {
-        this.velocityY = JUMP_FORCE;
-        this.isOnGround = false;
-      }
+      jump(){ this.velocityY = JUMP_FORCE; this.isOnGround = false; }
+
       draw(){
         ctx.save();
-        // Flip direction
-        if(this.direction === -1) {
+        // Flip drawing horizontally when facing right (sprite art faces left by default)
+        // Invert compared to original so the GIF orientation matches movement
+        if (this.direction === 1){
           ctx.translate(this.x + this.width, this.y);
           ctx.scale(-1, 1);
           ctx.translate(-this.x, -this.y);
         }
 
-        // corpo
-        ctx.fillStyle = '#3a8d9d'; // Azul escuro
-        ctx.fillRect(this.x + 10, this.y + 20, 20, 25);
-        // cabeça
-        ctx.fillStyle = '#ffc3a0'; // Tom de pele
-        ctx.beginPath(); ctx.arc(this.x + 20, this.y + 10, 12, 0, Math.PI * 2); ctx.fill();
-        // cabelo
-        ctx.fillStyle = '#4a3d35';
-        ctx.beginPath(); ctx.arc(this.x + 20, this.y + 8, 12, Math.PI, Math.PI*2); ctx.fill();
-        // olhos
-        ctx.fillStyle = 'white';
-        ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'black';
-        ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 1, 0, Math.PI * 2); ctx.fill();
-
-        // pernas animadas
-        let legOffset = 0;
-        if(this.isOnGround) {
-            legOffset = Math.sin(this.animationFrame) * 5;
+        // Desenha sprite (quando carregado) ou fallback geométrico
+        if (playerSprite && playerSprite.complete){
+          ctx.drawImage(playerSprite, this.x, this.y, this.width, this.height);
+        } else {
+          // fallback
+          ctx.fillStyle = '#3a8d9d'; // corpo
+          ctx.fillRect(this.x + 10, this.y + 20, 20, 25);
+          ctx.fillStyle = '#ffc3a0'; // cabeça
+          ctx.beginPath(); ctx.arc(this.x + 20, this.y + 10, 12, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#4a3d35'; ctx.beginPath(); ctx.arc(this.x + 20, this.y + 8, 12, Math.PI, Math.PI*2); ctx.fill();
+          ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 1, 0, Math.PI * 2); ctx.fill();
+          let legOffset = 0; if (this.isOnGround) legOffset = Math.sin(this.animationFrame) * 5;
+          ctx.fillStyle = '#3a8d9d'; ctx.fillRect(this.x + 10, this.y + 45, 8, 10 - legOffset); ctx.fillRect(this.x + 22, this.y + 45, 8, 10 + legOffset);
         }
-        ctx.fillStyle = '#3a8d9d';
-        ctx.fillRect(this.x + 10, this.y + 45, 8, 10 - legOffset);
-        ctx.fillRect(this.x + 22, this.y + 45, 8, 10 + legOffset);
-        
+
         ctx.restore();
 
         // se estiver carregando item, desenha acima do player
-        if (this.currentItem){
-          drawItem(this.x + this.width/2, this.y - 20, this.currentItem.type);
+        if (this.currentItem) {
+          const cx = this.x + this.width / 2;
+          let cy = this.y - 20;
+            // Para itens grandes (ex: lata/metal ou papel grande), posiciona o centro do item acima da cabeça do jogador
+            if ((this.currentItem.type === 'metal' && metalSprite && metalSprite.complete) ||
+                (this.currentItem.type === 'paper' && paperSprite && paperSprite.complete)) {
+              const mh = 140; // deve corresponder ao tamanho usado ao desenhar o item grande
+              cy = this.y - mh / 2 - 10; // 10px de folga acima da cabeça
+            } else if (this.currentItem.type === 'glass' && glassSprite && glassSprite.complete) {
+              const gh = 130;
+              cy = this.y - gh / 2 - 10; // folga ajustada para garrafa maior
+            } else if (this.currentItem.type === 'plastic' && plasticSprite && plasticSprite.complete) {
+              const ph = 110;
+              cy = this.y - ph / 2 - 8; // posicionamento para garrafa plástica
+            }
+          drawItem(cx, cy, this.currentItem.type);
         }
       }
+
       getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-      pickItem(item){
-        if (!this.currentItem){
-          this.currentItem = item;
-          return true;
-        }
-        return false;
-      }
-      dropItem(){
-        const dropped = this.currentItem;
-        this.currentItem = null;
-        return dropped;
-      }
-      takeDamage(amount) {
-          this.health -= amount;
-          if(this.health < 0) this.health = 0;
-          updatePlayerHealth();
-      }
+      pickItem(item){ if (!this.currentItem){ this.currentItem = item; return true; } return false; }
+      dropItem(){ const dropped = this.currentItem; this.currentItem = null; return dropped; }
+      takeDamage(amount){ this.health -= amount; if (this.health < 0) this.health = 0; updatePlayerHealth(); }
     }
 
     class Trash {
       constructor(x,y,type){
-        this.x=x; this.y=y; this.type=type; this.width=30; this.height=30;
-        this.collected=false; this.delivered=false;
+        this.x = x; this.y = y; this.type = type;
+        // size items to match sprites and center them on the ground
+        if (type === 'metal' || type === 'paper') { this.width = 140; this.height = 140; this.y = GROUND_Y - this.height/2; }
+        else if (type === 'glass') { this.width = 100; this.height = 130; this.y = GROUND_Y - this.height/2; }
+        else if (type === 'plastic') { this.width = 80; this.height = 110; this.y = GROUND_Y - this.height/2; }
+        else { this.width = 30; this.height = 30; }
+        this.collected = false; this.delivered = false;
       }
-      draw(){
-        if (!this.collected && !this.delivered){
-          drawItem(this.x, this.y, this.type);
-        }
-      }
+      draw(){ if (!this.collected && !this.delivered){ drawItem(this.x, this.y, this.type); } }
       getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
     }
 
     class Bin {
       constructor(x,y,correctType){
         this.x=x; this.y=y; this.width=50; this.height=70; this.correctType=correctType; this.color=getBinColor(correctType);
+        // tornar algumas lixeiras mais largas para evitar aparência comprimida
+        if (this.correctType === 'metal') { this.width = 80; this.height = 80; }
+        if (this.correctType === 'glass') { this.width = 80; this.height = 80; }
+        if (this.correctType === 'plastic') { this.width = 80; this.height = 80; }
+        if (this.correctType === 'paper') { this.width = 80; this.height = 80; }
+        
       }
       draw(){
-        // corpo da lixeira
+        // Use specific bin images if provided, otherwise draw vector box
+        if (this.correctType === 'paper' && typeof binPaperImg !== 'undefined' && binPaperImg && binPaperImg.complete) {
+          ctx.drawImage(binPaperImg, this.x, this.y, this.width, this.height);
+          return;
+        }
+
+        if (this.correctType === 'plastic' && typeof binPlasticImg !== 'undefined' && binPlasticImg && binPlasticImg.complete) {
+          ctx.drawImage(binPlasticImg, this.x, this.y, this.width, this.height);
+          return;
+        }
+
+        if (this.correctType === 'glass' && typeof binGlassImg !== 'undefined' && binGlassImg && binGlassImg.complete) {
+          ctx.drawImage(binGlassImg, this.x, this.y, this.width, this.height);
+          return;
+        }
+
+        if (this.correctType === 'metal' && typeof binMetalImg !== 'undefined' && binMetalImg && binMetalImg.complete) {
+          ctx.drawImage(binMetalImg, this.x, this.y, this.width, this.height);
+          return;
+        }
+
+        // corpo da lixeira (fallback)
         ctx.fillStyle=this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        
+
         // Detalhe da tampa
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.beginPath(); ctx.rect(this.x, this.y, this.width, 10); ctx.fill();
@@ -229,22 +275,27 @@
     }
 
     class NPC {
-      constructor(x,y){ this.x=x; this.y=y; this.width=40; this.height=55; this.animationFrame=0; }
+      constructor(x,y){ this.x = x; this.y = y; this.width = 64; this.height = 80; this.animationFrame = 0; }
       update(){ this.animationFrame += 0.05; }
       draw(){
-        const bobbing = Math.sin(this.animationFrame)*2;
-        // Cabeça
-        ctx.fillStyle = '#ffc3a0';
-        ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 10 + bobbing, 12, 0, Math.PI*2); ctx.fill();
-        // Cabelo
-        ctx.fillStyle = '#7a4d35';
-        ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 8 + bobbing, 12, Math.PI, Math.PI*2); ctx.fill();
-        // Corpo
-        ctx.fillStyle = '#c9a98e';
-        ctx.fillRect(this.x + 10, this.y + 22 + bobbing, 20, 28);
-        // "E" de interação
+        const bobbing = Math.sin(this.animationFrame) * 2;
+        // Se houver sprite animada, desenha o GIF; senão, fallback vetorial
+        if (npcSprite && npcSprite.complete){
+          ctx.drawImage(npcSprite, this.x, this.y + bobbing, this.width, this.height);
+        } else {
+          // Cabeça
+          ctx.fillStyle = '#ffc3a0';
+          ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 10 + bobbing, 12, 0, Math.PI*2); ctx.fill();
+          // Cabelo
+          ctx.fillStyle = '#7a4d35';
+          ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 8 + bobbing, 12, Math.PI, Math.PI*2); ctx.fill();
+          // Corpo
+          ctx.fillStyle = '#c9a98e';
+          ctx.fillRect(this.x + 10, this.y + 22 + bobbing, 20, 28);
+        }
+        // "E" de interação (sempre mostra)
         ctx.fillStyle='#FFD700'; ctx.font='bold 20px Arial'; ctx.textAlign = 'center';
-        ctx.fillText('E', this.x+this.width/2, this.y-10+bobbing);
+        ctx.fillText('E', this.x + this.width/2, this.y - 10 + bobbing);
       }
       getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
     }
@@ -320,7 +371,38 @@
 
     // ====== AUX ======
     function drawItem(x,y,type){
-      const colors = { paper:'#FFF8DC', plastic:'#FF1493', glass:'#87CEEB', metal:'#C0C0C0', organic:'#8B4513' };
+      // Use paper image if available (large like the metal can)
+      if (type === 'paper' && paperSprite && paperSprite.complete) {
+        const w = 140, h = 140;
+        const offsetY = -10; // desloca um pouco para baixo (negativo -> desce)
+        ctx.drawImage(paperSprite, x - w/2, y - h/2 - offsetY, w, h);
+        return;
+      }
+      // Use glass image (bottle) if available
+      if (type === 'glass' && glassSprite && glassSprite.complete) {
+        const w = 100, h = 130;
+        const offsetY = -10;
+        ctx.drawImage(glassSprite, x - w/2, y - h/2 - offsetY, w, h);
+        return;
+      }
+
+      // Use plastic bottle image if available (slightly shifted to the right)
+      if (type === 'plastic' && plasticSprite && plasticSprite.complete) {
+        const w = 80, h = 110;
+        const offsetY = -28; // mais negativo => desenha mais para baixo
+        const offsetX = 28; // desloca mais para a direita para evitar sobreposição
+        ctx.drawImage(plasticSprite, x - w/2 + offsetX, y - h/2 - offsetY, w, h);
+        return;
+      }
+      // Se for metal e existir a imagem, desenha o GIF (mantém animação)
+      if (type === 'metal' && metalSprite && metalSprite.complete) {
+        const w = 140, h = 140;
+        const offsetY = -10; // desloca um pouco para baixo (negativo -> desce)
+        ctx.drawImage(metalSprite, x - w/2, y - h/2 - offsetY, w, h);
+        return;
+      }
+
+      const colors = { paper:'#FFF8DC', plastic:'#FF1493', glass:'#87CEEB', metal:'#C0C0C0' };
       ctx.fillStyle = colors[type] || '#999';
       ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth=2; ctx.stroke();
@@ -332,31 +414,59 @@
       ctx.fillText(emoji, x, y);
     }
 
-    function getBinColor(type){ const colors = { paper:'#1E90FF', plastic:'#DC143C', glass:'#228B22', metal:'#FFD700', organic:'#8B4513' }; return colors[type]; }
-    function getBinLabel(type){ const labels = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal', organic:'Orgânico' }; return labels[type]; }
+    function getBinColor(type){ const colors = { paper:'#1E90FF', plastic:'#DC143C', glass:'#228B22', metal:'#FFD700' }; return colors[type]; }
+    function getBinLabel(type){ const labels = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal' }; return labels[type]; }
     function checkCollision(box1, box2){ return box1.x < box2.x + box2.width && box1.x + box1.width > box2.x && box1.y < box2.y + box2.height && box1.y + box1.height > box2.y; }
-    function showDialogue(text){ const dialog=document.getElementById('dialog'); dialog.textContent = text; dialog.classList.add('show'); }
-    function hideDialogue(){ document.getElementById('dialog').classList.remove('show'); }
+    // Dialogue manager (supports speaker name and optional sprite)
+    let activeDialogues = [];
+    let activeSpeaker = '';
+    let activeSpriteEl = null;
+    function showDialogueLine(index){
+      const dialog = document.getElementById('dialog');
+      const text = activeDialogues[index] || '';
+      if (activeSpeaker) {
+        const imgHtml = activeSpriteEl && activeSpriteEl.complete ? `<img src="${activeSpriteEl.src}" width="48" height="48" style="border-radius:6px;"/>` : '';
+        dialog.innerHTML = `<div style="display:flex;align-items:center;gap:12px"><div>${imgHtml}</div><div><strong style="font-size:18px">${activeSpeaker}</strong><div style="margin-top:6px">${text}</div></div></div>`;
+      } else {
+        dialog.textContent = text;
+      }
+      dialog.classList.add('show');
+    }
+    function startDialogue(lines, speaker = '', spriteEl = null){
+      activeDialogues = Array.isArray(lines) ? lines : [lines];
+      activeSpeaker = speaker || '';
+      activeSpriteEl = spriteEl || null;
+      currentDialogue = 0;
+      gameState = GAME_STATE.DIALOGUE;
+      showDialogueLine(0);
+    }
+    function hideDialogue(){ const d=document.getElementById('dialog'); d.classList.remove('show'); activeDialogues = []; activeSpeaker = ''; activeSpriteEl = null; }
     function showGameOver(victory, message){ gameState = GAME_STATE.GAME_OVER; const overlay=document.getElementById('gameOver'); const title=document.getElementById('gameOverTitle'); const text=document.getElementById('gameOverMessage'); if (victory){ title.textContent='🎉 Fase Completa!'; title.style.color='#4CAF50'; } else { title.textContent='💣 Missão Falhada!'; title.style.color='#FF6B6B'; } text.textContent = message; overlay.classList.add('show'); }
 
     // ====== INICIALIZAÇÃO ======
-    const player = new Player(100, GROUND_Y - 50);
-    const npc = new NPC(1050, GROUND_Y - 45);
+    const player = new Player(100, GROUND_Y - 70);
+    // posicionado para ficar apoiado no chão considerando a nova altura do sprite e o groundOffset
+    player.y = GROUND_Y - player.height + player.groundOffset;
+    const npc = new NPC(1050, GROUND_Y - 80);
+    // aumentar visualmente a Garii e posicioná-la um pouco mais para baixo
+    npc.height = 120;
+    npc.width = 120; // aumentar largura conforme solicitado
+    npc.y = GROUND_Y - npc.height + 10; // 10px mais para baixo
 
     let trash = [
       new Trash(250, GROUND_Y - 25, 'paper'),
       new Trash(450, GROUND_Y - 25, 'plastic'),
       new Trash(650, GROUND_Y - 25, 'glass'),
       new Trash(850, GROUND_Y - 25, 'metal'),
-      new Trash(350, GROUND_Y - 25, 'organic')
+      // organic removed from game
     ];
 
     let bins = [
-      new Bin(100, GROUND_Y - 70, 'paper'),
       new Bin(250, GROUND_Y - 70, 'plastic'),
       new Bin(400, GROUND_Y - 70, 'glass'),
       new Bin(550, GROUND_Y - 70, 'metal'),
-      new Bin(700, GROUND_Y - 70, 'organic')
+      // organic replaced by paper (blue)
+      new Bin(700, GROUND_Y - 70, 'paper')
     ];
 
     let boss = null;
@@ -382,8 +492,8 @@
       // abrir/avançar diálogo
       if ((e.key === 'e' || e.key === 'E') && gameState === GAME_STATE.DIALOGUE) {
         currentDialogue++;
-        if (currentDialogue < dialogues.length) {
-          showDialogue(dialogues[currentDialogue]);
+        if (currentDialogue < activeDialogues.length) {
+          showDialogueLine(currentDialogue);
         } else {
           hideDialogue();
           gameState = GAME_STATE.PLAYING;
@@ -406,8 +516,12 @@
         if(gameState === GAME_STATE.PLAYING) {
             // 1) se próximo a NPC e já coletou tudo -> finaliza
             if (checkCollision(player.getCollisionBox(), npc.getCollisionBox())) {
-              if (itemsCollected >= 5) {
+              if (itemsCollected >= 4) {
                 showGameOver(true, 'Parabéns! Você limpou toda a floresta!');
+                return;
+              } else {
+                // conversa com a Garii quando o jogador interage mas não terminou a missão
+                startDialogue(['Oi! Eu sou a Garii. Precisa de ajuda?','Pegue o lixo e coloque na lixeira certa. Se tiver dúvidas, venha falar comigo!'], 'Garii', npcSprite);
                 return;
               }
             }
@@ -433,7 +547,7 @@
                     deliveredTrash.delivered = true;
                     itemsCollected++;
                     updateUI();
-                    if (itemsCollected >= 5) {
+                    if (itemsCollected >= 4) {
                       showGameOver(true, 'Parabéns! Você limpou toda a floresta!');
                     }
                   } else {
@@ -441,7 +555,12 @@
                     if(dropped) {
                       dropped.collected = false;
                       dropped.x = b.x + b.width / 2;
-                      dropped.y = b.y - 30;
+                      // Ajusta a posição de queda para itens grandes (como metal)
+                      if (dropped.type === 'metal') {
+                        dropped.y = b.y - dropped.height/2 - 10;
+                      } else {
+                        dropped.y = b.y - 30;
+                      }
                     }
                     errors++;
                     updateUI();
@@ -485,7 +604,7 @@
       document.getElementById('collectedCount').textContent = itemsCollected;
       let itemText = 'Item: Nenhum';
       if (player.currentItem){
-        const names = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal', organic:'Orgânico' };
+        const names = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal' };
         itemText = 'Item: ' + names[player.currentItem.type];
       }
       document.getElementById('itemCount').textContent = itemText;
@@ -512,23 +631,40 @@
     ];
 
     function drawCloud(cloud) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.beginPath();
-        ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
-        ctx.arc(cloud.x + cloud.size * 0.6, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
-        ctx.arc(cloud.x - cloud.size * 0.6, cloud.y, cloud.size * 0.7, 0, Math.PI * 2);
-        ctx.fill();
+      // Se imagem disponível, desenha a nuvem como imagem (dimensionada pelo tamanho)
+      if (cloudSprite && cloudSprite.complete) {
+        const w = cloud.size * 3; // largura proporcional ao 'size'
+        const h = cloud.size * 2; // altura proporcional
+        ctx.drawImage(cloudSprite, cloud.x - w/2, cloud.y - h/2, w, h);
+        return;
+      }
+      // Fallback vetorial
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+      ctx.arc(cloud.x + cloud.size * 0.6, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
+      ctx.arc(cloud.x - cloud.size * 0.6, cloud.y, cloud.size * 0.7, 0, Math.PI * 2);
+      ctx.fill();
     }
     
     function drawTree(x, y) {
-        // Tronco
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(x, y, 20, 60);
-        // Copa
-        ctx.fillStyle = '#228B22';
-        ctx.beginPath();
-        ctx.arc(x + 10, y - 20, 40, 0, Math.PI * 2);
-        ctx.fill();
+      // Se houver imagem de árvore, desenha a imagem (alinhada à base do chão)
+      if (treeSprite && treeSprite.complete) {
+        const w = 260, h = 320;
+        const drawX = x - w/2;
+        const drawY = GROUND_Y - h + 10; // 10px de imersão no chão
+        ctx.drawImage(treeSprite, drawX, drawY, w, h);
+        return;
+      }
+      // Fallback vetorial (antiga árvore em CSS)
+      // Tronco
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(x, y, 20, 60);
+      // Copa
+      ctx.fillStyle = '#228B22';
+      ctx.beginPath();
+      ctx.arc(x + 10, y - 20, 40, 0, Math.PI * 2);
+      ctx.fill();
     }
 
 
@@ -548,14 +684,18 @@
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0,0,canvas.width,canvas.height);
       
-      // Nuvens
-      clouds.forEach(cloud => {
+        // Desenha árvores de fundo (atrás de tudo)
+        drawTree(150, GROUND_Y - 60);
+        drawTree(950, GROUND_Y - 60);
+
+        // Nuvens
+        clouds.forEach(cloud => {
           cloud.x += cloud.speed;
           if(cloud.x - cloud.size > canvas.width) {
-              cloud.x = -cloud.size * 2;
+            cloud.x = -cloud.size * 2;
           }
           drawCloud(cloud);
-      });
+        });
 
       // Chão
       ctx.fillStyle = gameState === GAME_STATE.BOSS_BATTLE ? '#5c4d4d' : '#6B8E23';
@@ -579,7 +719,7 @@
         trashSpawnTimer--;
         if(trashSpawnTimer <= 0) {
             const randomX = Math.random() * (canvas.width - 100) + 50;
-            const trashTypes = ['paper', 'plastic', 'glass', 'metal', 'organic'];
+            const trashTypes = ['paper', 'plastic', 'glass', 'metal'];
             const randomType = trashTypes[Math.floor(Math.random() * trashTypes.length)];
             trash.push(new Trash(randomX, GROUND_Y - 25, randomType));
             trashSpawnTimer = 200 + Math.random() * 100; // a cada ~3-5s
@@ -636,8 +776,8 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // inicia diálogo
-    if (dialogues.length > 0) showDialogue(dialogues[0]);
+    // inicia diálogo (agora como se fosse a Garii falando)
+    if (dialogues.length > 0) startDialogue(dialogues, 'Garii', npcSprite);
 
     updateUI();
     gameLoop();
