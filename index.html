@@ -20,7 +20,7 @@
     #dialog.show{display:block;animation:slideUp .3s ease-out}
     @keyframes slideUp{from{transform:translateX(-50%) translateY(100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
     #bossBar{position:absolute;top:80px;right:20px;background:rgba(0,0,0,0.3);padding:10px;border-radius:5px;display:none;z-index:15}
-    #bossBar.show{display:block}
+
     .health-bar{width:200px;height:30px;background:#333;border:2px solid white;border-radius:5px;overflow:hidden;margin-top:5px}
     .health-fill{height:100%;background:linear-gradient(90deg,#FF6B6B,#FF8C42);width:100%;transition:width 0.2s}
     .instructions{position:absolute;bottom:20px;right:20px;background:rgba(0,0,0,0.7);color:white;padding:15px;border-radius:5px;font-size:14px;text-align:right;max-width:250px;z-index:5}
@@ -64,7 +64,7 @@
     </div>
 
     <div class="instructions">
-      <p><span class="key">W</span> Pular</p>
+      <p><span class="key">W</span> Escudo</p>
       <p><span class="key">A</span> <span class="key">D</span> Mover</p>
       <p><span class="key">E</span> Interagir / Depositar</p>
       <p><span class="key">F</span> Atirar (na batalha)</p>
@@ -82,6 +82,7 @@
     <img id="bin_plastic_img" src="imagem/lixeira.vermelha-removebg-preview.png" alt="bin-plastic" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
     <img id="bin_glass_img" src="imagem/lixeira.verde-removebg-preview.png" alt="bin-glass" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
     <img id="bin_metal_img" src="imagem/lixeira.amarela-removebg-preview.png" alt="bin-metal" style="position:absolute; left:-9999px; top:-9999px; " aria-hidden="true" />
+    <img id="bossSpriteImg" src="imagem/lixeira.luta.png" alt="boss-sprite" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
   </div>
 
   <script>
@@ -118,6 +119,7 @@
     const binMetalImg = document.getElementById('bin_metal_img');
     const treeSprite = document.getElementById('treeImg');
     const cloudSprite = document.getElementById('cloudImg');
+    const bossSprite = document.getElementById('bossSpriteImg');
 
     // ====== CLASSES ======
     class Player {
@@ -129,12 +131,28 @@
         this.isMoving = false; this.currentItem = null; this.animationFrame = 0;
         this.isOnGround = true;
         this.health = 100; this.maxHealth = 100;
+
+        // Shield properties
+        this.isShielding = false;
+        this.shieldCooldown = 0;
+        this.shieldCooldownTime = 300; // 5 seconds
       }
       update(keys){
+        // Handle shield cooldown
+        if (this.shieldCooldown > 0) {
+            this.shieldCooldown--;
+        }
+
         this.velocityX = 0; this.isMoving = false;
         if (keys['a']||keys['A']){ this.velocityX = -this.speed; this.direction = -1; this.isMoving = true; }
         if (keys['d']||keys['D']){ this.velocityX = this.speed; this.direction = 1; this.isMoving = true; }
-        if ((keys['w'] || keys['W']) && this.isOnGround) { this.jump(); }
+        if (keys['w'] || keys['W']) {
+            if (this.shieldCooldown <= 0) {
+                this.isShielding = true;
+                this.shieldTimer = this.shieldDuration;
+                this.shieldCooldown = this.shieldCooldownTime;
+            }
+        }
 
         this.x += this.velocityX;
         if (this.x < 0) this.x = 0;
@@ -147,6 +165,7 @@
 
         if (this.isMoving && this.isOnGround) this.animationFrame += 0.2;
       }
+
       jump(){ this.velocityY = JUMP_FORCE; this.isOnGround = false; }
 
       draw(){
@@ -177,6 +196,16 @@
 
         ctx.restore();
 
+        // Draw shield if active
+        if (this.isShielding) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // Light blue, semi-transparent
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width * 0.7, 0, Math.PI * 2); // Slightly smaller than player
+          ctx.fill();
+          ctx.restore();
+        }
+
         // se estiver carregando item, desenha acima do player
         if (this.currentItem) {
           const cx = this.x + this.width / 2;
@@ -200,7 +229,13 @@
       getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
       pickItem(item){ if (!this.currentItem){ this.currentItem = item; return true; } return false; }
       dropItem(){ const dropped = this.currentItem; this.currentItem = null; return dropped; }
-      takeDamage(amount){ this.health -= amount; if (this.health < 0) this.health = 0; updatePlayerHealth(); }
+      takeDamage(amount){
+        if (this.isShielding) {
+            this.isShielding = false; // Shield is broken by the hit
+            return; // Damage is blocked
+        }
+        this.health -= amount; if (this.health < 0) this.health = 0; updatePlayerHealth();
+      }
     }
 
     class Trash {
@@ -319,17 +354,23 @@
       }
       draw(){
         const shake = Math.sin(this.animationFrame*2)*3;
-        ctx.fillStyle='#6b4a3e'; ctx.fillRect(this.x+shake, this.y, this.width, this.height);
-        ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.strokeRect(this.x+shake, this.y, this.width, this.height);
-        // "olhos"
-        ctx.fillStyle='#FF0000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
-        // "boca" (grade)
-        ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(this.x+20+shake, this.y+90); ctx.lineTo(this.x+100+shake, this.y+90); ctx.stroke();
-        for(let i=0; i<6; i++) {
-          ctx.fillRect(this.x+20+i*15+shake, this.y+90, 4, 20);
+        // Draw sprite if available
+        if (typeof bossSprite !== 'undefined' && bossSprite && bossSprite.complete) {
+            ctx.drawImage(bossSprite, this.x + shake, this.y, this.width, this.height);
+        } else {
+            // Fallback vector drawing
+            ctx.fillStyle='#6b4a3e'; ctx.fillRect(this.x+shake, this.y, this.width, this.height);
+            ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.strokeRect(this.x+shake, this.y, this.width, this.height);
+            // "olhos"
+            ctx.fillStyle='#FF0000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
+            // "boca" (grade)
+            ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(this.x+20+shake, this.y+90); ctx.lineTo(this.x+100+shake, this.y+90); ctx.stroke();
+            for(let i=0; i<6; i++) {
+              ctx.fillRect(this.x+20+i*15+shake, this.y+90, 4, 20);
+            }
         }
       }
       getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
@@ -473,14 +514,10 @@
     let projectiles = [];
     let trashSpawnTimer = 0;
     let dialogues = [
-      '🌍 Olá! Sou o Guia Ambiental!',
-      'A poluição está ameaçando nossa linda floresta.',
-      'Sua missão é reciclar o lixo corretamente.',
-      'Pegue cada item e coloque na lixeira certa.',
-      'CUIDADO! 3 erros despertam a FÚRIA DA NATUREZA!',
-      'Use <A> e <D> para mover, <W> para pular e <E> para interagir.',
-      'Na batalha, use <F> para ATIRAR o lixo no chefe!',
-      'Boa sorte, herói da reciclagem!'
+      ' O descarte incorreto do lixo é um problema grave porque o impacto não fica restrito apenas ao local onde o lixo foi jogado;',
+      'ele gera uma reação em cadeia que afeta a saúde, a economia e a natureza. Descartar o lixo incorretamente polui o solo, contamina a água e causa enchentes e doenças.',
+      'Quando você joga o resíduo no lugar certo e separa para a reciclagem, preserva a saúde pública e protege o meio ambiente.',
+      'Me ajude a proteger o planeta descartando corretamente o lixo. Vermelho: plástico , Verde: vidro, Azul: papel, Amarelo: metal'
     ];
     let currentDialogue = 0;
 
@@ -564,18 +601,15 @@
                     }
                     errors++;
                     updateUI();
-                    if (errors >= 3 && gameState !== GAME_STATE.BOSS_BATTLE) {
-                      gameState = GAME_STATE.BOSS_BATTLE;
-                      boss = new Boss();
-                      trash = []; // Limpa o lixo da fase normal
-                      bins = [];
-                      showDialogue('👹 A MEGA-LIXEIRA CAÓTICA APARECEU! Use o lixo para derrotá-la!');
-                      document.getElementById('bossBar').classList.add('show');
-                      document.getElementById('playerBar').style.display = 'block';
-                      updateBossHealth();
-                      updatePlayerHealth();
-                    }
-                  }
+                                                            if (errors >= 3 && gameState !== GAME_STATE.BOSS_BATTLE) {
+                                                              gameState = GAME_STATE.BOSS_BATTLE;
+                                                              boss = new Boss();
+                                                              trash = []; // Limpa o lixo da fase normal
+                                                              bins = [];
+                                                              showDialogue('👹 A MEGA-LIXEIRA CAÓTICA APARECEU! Use o lixo para derrotá-la!');
+                                                              updateBossHealth();
+                                                              updatePlayerHealth();
+                                                            }                  }
                   return;
                 }
               }
@@ -670,6 +704,15 @@
 
     // ====== LOOP ======
     function gameLoop(){
+      // Force health bars visibility based on game state
+      if (gameState === GAME_STATE.BOSS_BATTLE) {
+          document.getElementById('playerBar').style.display = 'block';
+          document.getElementById('bossBar').style.display = 'block';
+      } else {
+          document.getElementById('playerBar').style.display = 'none';
+          document.getElementById('bossBar').style.display = 'none';
+      }
+
       // fundo
       ctx.clearRect(0,0,canvas.width,canvas.height); // Limpa a tela
       
