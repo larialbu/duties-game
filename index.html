@@ -16,7 +16,8 @@
     canvas{display:block;background:inherit}
     #ui{position:absolute;top:20px;left:20px;right:20px;color:white;font-size:18px;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5);z-index:10}
     .ui-row{display:flex;justify-content:space-between;margin-bottom:15px;background:rgba(0,0,0,0.3);padding:10px 15px;border-radius:5px}
-    #dialog{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.9);color:white;padding:20px 30px;border-radius:10px;max-width:600px;text-align:center;z-index:20;border:3px solid #FFD700;display:none}
+    /* Dialog card: white background with black text (Garii speaking) */
+    #dialog{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#ffffff;color:#000000;padding:20px 24px;border-radius:10px;max-width:600px;text-align:left;z-index:20;border:3px solid #FFD700;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.12)}
     #dialog.show{display:block;animation:slideUp .3s ease-out}
     @keyframes slideUp{from{transform:translateX(-50%) translateY(100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
     #bossBar{position:absolute;top:80px;right:20px;background:rgba(0,0,0,0.3);padding:10px;border-radius:5px;display:none;z-index:15}
@@ -64,15 +65,15 @@
     </div>
 
     <div class="instructions">
-      <p><span class="key">W</span> Escudo</p>
+      <p><span class="key">W</span> Pular</p>
       <p><span class="key">A</span> <span class="key">D</span> Mover</p>
       <p><span class="key">E</span> Interagir / Depositar</p>
       <p><span class="key">F</span> Atirar (na batalha)</p>
     </div>
-    <!-- Imagem do jogador (mantida no DOM para garantir que GIF animado atualize seus frames) -->
     <img id="playerSpriteImg" src="imagem/AUGUSTINHO.01.gif" alt="player-sprite" style="position:absolute; left:-9999px; top:-9999px; width:80px; height:70px;" aria-hidden="true" />
     <img id="metalSpriteImg" src="imagem/lata.1.gif" alt="metal-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" />
     <img id="npcSpriteImg" src="imagem/garii.pixel.gif" alt="npc-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:120px;" aria-hidden="true" />
+    <img id="gariiPngImg" src="imagem/gariii.gif" alt="garii-avatar" style="position:absolute; left:-9999px; top:-9999px; width:180px; height:160px;" aria-hidden="true" />
     <img id="treeImg" src="imagem/arvore.png" alt="tree-sprite" style="position:absolute; left:-9999px; top:-9999px; width:260px; height:320px;" aria-hidden="true" />
     <img id="cloudImg" src="imagem/nuvem.png" alt="cloud-sprite" style="position:absolute; left:-9999px; top:-9999px; width:200px; height:120px;" aria-hidden="true" />
     <img id="bin_paper_img" src="imagem/lixeira.azul-removebg-preview.png" alt="bin-paper" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
@@ -119,6 +120,7 @@
     const binMetalImg = document.getElementById('bin_metal_img');
     const treeSprite = document.getElementById('treeImg');
     const cloudSprite = document.getElementById('cloudImg');
+    const gariiPngSprite = document.getElementById('gariiPngImg');
     const bossSprite = document.getElementById('bossSpriteImg');
 
     // ====== CLASSES ======
@@ -131,28 +133,13 @@
         this.isMoving = false; this.currentItem = null; this.animationFrame = 0;
         this.isOnGround = true;
         this.health = 100; this.maxHealth = 100;
-
-        // Shield properties
-        this.isShielding = false;
-        this.shieldCooldown = 0;
-        this.shieldCooldownTime = 300; // 5 seconds
       }
       update(keys){
-        // Handle shield cooldown
-        if (this.shieldCooldown > 0) {
-            this.shieldCooldown--;
-        }
-
         this.velocityX = 0; this.isMoving = false;
         if (keys['a']||keys['A']){ this.velocityX = -this.speed; this.direction = -1; this.isMoving = true; }
         if (keys['d']||keys['D']){ this.velocityX = this.speed; this.direction = 1; this.isMoving = true; }
-        if (keys['w'] || keys['W']) {
-            if (this.shieldCooldown <= 0) {
-                this.isShielding = true;
-                this.shieldTimer = this.shieldDuration;
-                this.shieldCooldown = this.shieldCooldownTime;
-            }
-        }
+        // Jump keys: Space, ArrowUp, or W
+        if ((keys[' '] || keys['Spacebar'] || keys['Space'] || keys['ArrowUp'] || keys['w'] || keys['W']) && this.isOnGround) { this.jump(); }
 
         this.x += this.velocityX;
         if (this.x < 0) this.x = 0;
@@ -196,16 +183,6 @@
 
         ctx.restore();
 
-        // Draw shield if active
-        if (this.isShielding) {
-          ctx.save();
-          ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // Light blue, semi-transparent
-          ctx.beginPath();
-          ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width * 0.7, 0, Math.PI * 2); // Slightly smaller than player
-          ctx.fill();
-          ctx.restore();
-        }
-
         // se estiver carregando item, desenha acima do player
         if (this.currentItem) {
           const cx = this.x + this.width / 2;
@@ -230,10 +207,6 @@
       pickItem(item){ if (!this.currentItem){ this.currentItem = item; return true; } return false; }
       dropItem(){ const dropped = this.currentItem; this.currentItem = null; return dropped; }
       takeDamage(amount){
-        if (this.isShielding) {
-            this.isShielding = false; // Shield is broken by the hit
-            return; // Damage is blocked
-        }
         this.health -= amount; if (this.health < 0) this.health = 0; updatePlayerHealth();
       }
     }
@@ -458,27 +431,46 @@
     function getBinColor(type){ const colors = { paper:'#1E90FF', plastic:'#DC143C', glass:'#228B22', metal:'#FFD700' }; return colors[type]; }
     function getBinLabel(type){ const labels = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal' }; return labels[type]; }
     function checkCollision(box1, box2){ return box1.x < box2.x + box2.width && box1.x + box1.width > box2.x && box1.y < box2.y + box2.height && box1.y + box1.height > box2.y; }
-    // Dialogue manager (supports speaker name and optional sprite)
+    // Dialogue manager (supports speaker name, optional sprite and avatar size)
     let activeDialogues = [];
     let activeSpeaker = '';
     let activeSpriteEl = null;
+    let activeAvatarSize = 48; // default avatar size in px
     function showDialogueLine(index){
       const dialog = document.getElementById('dialog');
       const text = activeDialogues[index] || '';
       if (activeSpeaker) {
-        const imgHtml = activeSpriteEl && activeSpriteEl.complete ? `<img src="${activeSpriteEl.src}" width="48" height="48" style="border-radius:6px;"/>` : '';
+        // Prefer the provided PNG avatar, but fallback to the in-world NPC GIF if PNG is missing
+        let spriteToUse = null;
+        if (activeSpriteEl && activeSpriteEl.complete) {
+          spriteToUse = activeSpriteEl;
+        } else if (activeSpeaker === 'Garii' && npcSprite && npcSprite.complete) {
+          console.warn('garii PNG not available or not loaded, falling back to NPC GIF for dialogue avatar.');
+          spriteToUse = npcSprite;
+        }
+        const size = activeAvatarSize || 48;
+        const imgHtml = spriteToUse ? `<img src="${spriteToUse.src}" width="${size}" height="${size}" style="border-radius:6px;object-fit:cover"/>` : '';
         dialog.innerHTML = `<div style="display:flex;align-items:center;gap:12px"><div>${imgHtml}</div><div><strong style="font-size:18px">${activeSpeaker}</strong><div style="margin-top:6px">${text}</div></div></div>`;
       } else {
         dialog.textContent = text;
       }
       dialog.classList.add('show');
     }
-    function startDialogue(lines, speaker = '', spriteEl = null){
+    function startDialogue(lines, speaker = '', spriteEl = null, avatarSize = 48, setState = true){
       activeDialogues = Array.isArray(lines) ? lines : [lines];
       activeSpeaker = speaker || '';
-      activeSpriteEl = spriteEl || null;
+      activeSpriteEl = spriteEl || null; // Use the provided sprite element
+      activeAvatarSize = avatarSize || 72; // Set default avatar size to 72px
       currentDialogue = 0;
-      gameState = GAME_STATE.DIALOGUE;
+      if (setState) gameState = GAME_STATE.DIALOGUE;
+
+      // If the intended avatar isn't loaded yet, refresh the current dialogue line when it finishes loading
+      if (activeSpriteEl && !activeSpriteEl.complete) {
+        activeSpriteEl.onload = () => { if (gameState === GAME_STATE.DIALOGUE) showDialogueLine(currentDialogue); };
+      } else if (!activeSpriteEl && activeSpeaker === 'Garii' && npcSprite && !npcSprite.complete) {
+        npcSprite.onload = () => { if (gameState === GAME_STATE.DIALOGUE) showDialogueLine(currentDialogue); };
+      }
+
       showDialogueLine(0);
     }
     function hideDialogue(){ const d=document.getElementById('dialog'); d.classList.remove('show'); activeDialogues = []; activeSpeaker = ''; activeSpriteEl = null; }
@@ -537,7 +529,7 @@
         }
         return;
       }
-      
+
       // Atirar no Boss
       if ((e.key === 'f' || e.key === 'F') && gameState === GAME_STATE.BOSS_BATTLE) {
           if(player.currentItem && boss && boss.isAlive()) {
@@ -558,7 +550,7 @@
                 return;
               } else {
                 // conversa com a Garii quando o jogador interage mas não terminou a missão
-                startDialogue(['Oi! Eu sou a Garii. Precisa de ajuda?','Pegue o lixo e coloque na lixeira certa. Se tiver dúvidas, venha falar comigo!'], 'Garii', npcSprite);
+                startDialogue(['Oi! Eu sou a Garii. Precisa de ajuda?','Pegue o lixo e coloque na lixeira certa. Se tiver dúvidas, venha falar comigo!'], 'Garii', gariiPngSprite);
                 return;
               }
             }
@@ -606,7 +598,8 @@
                                                               boss = new Boss();
                                                               trash = []; // Limpa o lixo da fase normal
                                                               bins = [];
-                                                              showDialogue('👹 A MEGA-LIXEIRA CAÓTICA APARECEU! Use o lixo para derrotá-la!');
+                                                              // show boss spawn dialogue without changing gameState (keep BOSS_BATTLE)
+                                                              startDialogue(['👹 A MEGA-LIXEIRA CAÓTICA APARECEU! Use o lixo para derrotá-la!'], '', null, 48, false);
                                                               updateBossHealth();
                                                               updatePlayerHealth();
                                                             }                  }
@@ -819,8 +812,7 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // inicia diálogo (agora como se fosse a Garii falando)
-    if (dialogues.length > 0) startDialogue(dialogues, 'Garii', npcSprite);
+    if (dialogues.length > 0) startDialogue(dialogues, 'Garii', gariiPngSprite);
 
     updateUI();
     gameLoop();
