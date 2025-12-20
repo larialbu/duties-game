@@ -138,8 +138,6 @@
         this.velocityX = 0; this.isMoving = false;
         if (keys['a']||keys['A']){ this.velocityX = -this.speed; this.direction = -1; this.isMoving = true; }
         if (keys['d']||keys['D']){ this.velocityX = this.speed; this.direction = 1; this.isMoving = true; }
-        // Jump keys: Space, ArrowUp, or W
-        if ((keys[' '] || keys['Spacebar'] || keys['Space'] || keys['ArrowUp'] || keys['w'] || keys['W']) && this.isOnGround) { this.jump(); }
 
         this.x += this.velocityX;
         if (this.x < 0) this.x = 0;
@@ -538,6 +536,11 @@
               player.dropItem();
               updateUI();
           }
+      }
+
+      // Pular
+      if ((e.key === 'w' || e.key === 'W') && player.isOnGround) {
+        player.jump();
       }
 
       // Interagir (pegar/depositar)
