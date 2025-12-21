@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Prevent aggressive caching during development -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Jogo de Reciclagem</title>
   <style>
     /* (mantive seu CSS original, com leves ajustes se necessário) */
@@ -33,9 +37,33 @@
     #gameOver p{font-size:24px;margin-bottom:30px}
     #gameOver button{background:#4CAF50;color:white;border:none;padding:12px 30px;font-size:18px;border-radius:5px;cursor:pointer}
     #gameOver button:hover{background:#45a049}
+    /* Button variants for game over actions */
+    #gameOver .btn-primary{background:#4CAF50}
+    #gameOver .btn-primary:hover{background:#45a049}
+    #gameOver .btn-secondary{background:#2196F3}
+    #gameOver .btn-secondary:hover{background:#1976D2}
   </style>
 </head>
 <body>
+  <button id="startBossBtn" style="
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  padding:16px 32px;
+  font-size:20px;
+  font-weight:bold;
+  background:#FF6B6B;
+  color:white;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  z-index:50;
+  display:none;
+">
+⚔️ Iniciar Batalha
+</button>
+
   <div id="gameContainer">
     <canvas id="gameCanvas" width="1200" height="600"></canvas>
 
@@ -61,7 +89,10 @@
     <div id="gameOver">
       <h1 id="gameOverTitle">Fase Completa!</h1>
       <p id="gameOverMessage">Parabéns! Você completou a missão!</p>
-      <button onclick="location.reload()">Jogar Novamente</button>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="location.reload()" class="btn-primary">Jogar Novamente</button>
+        <button id="nextPhaseBtn" onclick="goToNextPhase()" class="btn-secondary" style="display:none">Ir para a próxima fase</button>
+      </div>
     </div>
 
     <div class="instructions">
@@ -70,30 +101,30 @@
       <p><span class="key">E</span> Interagir / Depositar</p>
       <p><span class="key">F</span> Atirar (na batalha)</p>
     </div>
-    <img id="playerSpriteImg" src="imagem/AUGUSTINHO.01.gif" alt="player-sprite" style="position:absolute; left:-9999px; top:-9999px; width:80px; height:70px;" aria-hidden="true" />
-    <img id="metalSpriteImg" src="imagem/lata.1.gif" alt="metal-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" />
-    <img id="npcSpriteImg" src="imagem/garii.pixel.gif" alt="npc-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:120px;" aria-hidden="true" />
-    <img id="gariiPngImg" src="imagem/gariii.gif" alt="garii-avatar" style="position:absolute; left:-9999px; top:-9999px; width:180px; height:160px;" aria-hidden="true" />
-    <img id="treeImg" src="imagem/arvore.png" alt="tree-sprite" style="position:absolute; left:-9999px; top:-9999px; width:260px; height:320px;" aria-hidden="true" />
-    <img id="cloudImg" src="imagem/nuvem.png" alt="cloud-sprite" style="position:absolute; left:-9999px; top:-9999px; width:200px; height:120px;" aria-hidden="true" />
-    <img id="bin_paper_img" src="imagem/lixeira.azul-removebg-preview.png" alt="bin-paper" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
-    <img id="paperSpriteImg" src="imagem/papel.png" alt="paper-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" />
-    <img id="glassSpriteImg" src="imagem/garrafa.png" alt="glass-sprite" style="position:absolute; left:-9999px; top:-9999px; width:100px; height:130px;" aria-hidden="true" />
-    <img id="plasticSpriteImg" src="imagem/garrafa.plastico.png" alt="plastic-sprite" style="position:absolute; left:-9999px; top:-9999px;  width:100px; height:130px;" aria-hidden="true" />
-    <img id="bin_plastic_img" src="imagem/lixeira.vermelha-removebg-preview.png" alt="bin-plastic" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
-    <img id="bin_glass_img" src="imagem/lixeira.verde-removebg-preview.png" alt="bin-glass" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
-    <img id="bin_metal_img" src="imagem/lixeira.amarela-removebg-preview.png" alt="bin-metal" style="position:absolute; left:-9999px; top:-9999px; " aria-hidden="true" />
-    <img id="bossSpriteImg" src="imagem/lixeira.luta.png" alt="boss-sprite" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" />
+    <img id="playerSpriteImg" src="imagem/AUGUSTINHO.01.gif" alt="player-sprite" style="position:absolute; left:-9999px; top:-9999px; width:80px; height:70px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="metalSpriteImg" src="imagem/lata.1.gif" alt="metal-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="npcSpriteImg" src="imagem/garii.pixel.gif" alt="npc-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:120px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="gariiPngImg" src="imagem/gariii.gif" alt="garii-avatar" style="position:absolute; left:-9999px; top:-9999px; width:180px; height:160px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="treeImg" src="imagem/arvore.png" alt="tree-sprite" style="position:absolute; left:-9999px; top:-9999px; width:260px; height:320px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="cloudImg" src="imagem/nuvem.png" alt="cloud-sprite" style="position:absolute; left:-9999px; top:-9999px; width:200px; height:120px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="bin_paper_img" src="imagem/lixeira.azul-removebg-preview.png" alt="bin-paper" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="paperSpriteImg" src="imagem/papel.png" alt="paper-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="glassSpriteImg" src="imagem/garrafa.png" alt="glass-sprite" style="position:absolute; left:-9999px; top:-9999px; width:100px; height:130px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="plasticSpriteImg" src="imagem/garrafa.plastico.png" alt="plastic-sprite" style="position:absolute; left:-9999px; top:-9999px;  width:100px; height:130px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="bin_plastic_img" src="imagem/lixeira.vermelha-removebg-preview.png" alt="bin-plastic" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="bin_glass_img" src="imagem/lixeira.verde-removebg-preview.png" alt="bin-glass" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="bin_metal_img" src="imagem/lixeira.amarela.png" alt="bin-metal" style="position:absolute; left:-9999px; top:-9999px; " aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+    <img id="bossSpriteImg" src="imagem/lixeira.luta.png" alt="boss-sprite" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
   </div>
 
   <script>
     // ====== CONFIG ======
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const GRAVITY = 0.5;
-    // diminuir o valor em 5px para aumentar o gramado em 5px
     const GROUND_Y = 475;
-    const JUMP_FORCE = -12;
+    const GRAVITY_UP = 0.65;     // gravidade enquanto sobe (mais leve)
+const GRAVITY_DOWN = 1.1;   // gravidade na queda (mais pesada)
+const JUMP_FORCE = -15;     // impulso inicial mais forte
 
     const GAME_STATE = { PLAYING:'playing', BOSS_BATTLE:'boss_battle', DIALOGUE:'dialogue', GAME_OVER:'game_over' };
     let gameState = GAME_STATE.DIALOGUE;
@@ -122,6 +153,8 @@
     const cloudSprite = document.getElementById('cloudImg');
     const gariiPngSprite = document.getElementById('gariiPngImg');
     const bossSprite = document.getElementById('bossSpriteImg');
+    const startBossBtn = document.getElementById('startBossBtn');
+startBossBtn.onclick = startBossBattle;
 
     // ====== CLASSES ======
     class Player {
@@ -143,15 +176,35 @@
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
 
-        this.velocityY += GRAVITY;
-        this.y += this.velocityY;
+       // Gravidade diferente para subida e queda
+if (this.velocityY < 0) {
+  this.velocityY += GRAVITY_UP;     // subindo (fica mais tempo no ar)
+} else {
+  this.velocityY += GRAVITY_DOWN;   // caindo (cai mais rápido)
+}
+
+this.y += this.velocityY;
+
         this.isOnGround = false;
-        if (this.y + this.height >= GROUND_Y){ this.y = GROUND_Y - this.height + this.groundOffset; this.velocityY = 0; this.isOnGround = true; }
+
+        const groundLevel = GROUND_Y - this.height + this.groundOffset;
+
+if (this.y >= groundLevel) {
+  this.y = groundLevel;
+  this.velocityY = 0;
+  this.isOnGround = true;
+}
 
         if (this.isMoving && this.isOnGround) this.animationFrame += 0.2;
       }
 
-      jump(){ this.velocityY = JUMP_FORCE; this.isOnGround = false; }
+   jump(){
+  if (this.isOnGround) {
+    this.velocityY = JUMP_FORCE;
+    this.isOnGround = false;
+  }
+}
+
 
       draw(){
         ctx.save();
@@ -472,7 +525,42 @@
       showDialogueLine(0);
     }
     function hideDialogue(){ const d=document.getElementById('dialog'); d.classList.remove('show'); activeDialogues = []; activeSpeaker = ''; activeSpriteEl = null; }
-    function showGameOver(victory, message){ gameState = GAME_STATE.GAME_OVER; const overlay=document.getElementById('gameOver'); const title=document.getElementById('gameOverTitle'); const text=document.getElementById('gameOverMessage'); if (victory){ title.textContent='🎉 Fase Completa!'; title.style.color='#4CAF50'; } else { title.textContent='💣 Missão Falhada!'; title.style.color='#FF6B6B'; } text.textContent = message; overlay.classList.add('show'); }
+
+    // Redirect scheduler: legacy helper (kept for compatibility). It stores the timer so it can be canceled.
+    let _redirectScheduled = false;
+    let _redirectTimerId = null;
+    function scheduleRedirectToNuvem(delay = 1500) {
+      if (_redirectScheduled) return;
+      _redirectScheduled = true;
+      _redirectTimerId = setTimeout(() => { window.location.href = 'nuvem.html'; }, delay);
+    }
+    function cancelScheduledRedirect(){ if (_redirectTimerId) { clearTimeout(_redirectTimerId); _redirectTimerId = null; } _redirectScheduled = false; }
+
+    // Immediate navigation helper (used by the overlay button)
+    function goToNextPhase(){ window.location.href = 'nuvem.html'; }
+
+    function showGameOver(victory, message){
+      // Cancel any previously scheduled automatic redirect — we want the player to choose when to go to the next phase
+      cancelScheduledRedirect();
+      gameState = GAME_STATE.GAME_OVER; // restore visibility when the battle ends or mission finishes
+      showBins = true;
+      showNPC = true;
+      const overlay = document.getElementById('gameOver');
+      const title = document.getElementById('gameOverTitle');
+      const text = document.getElementById('gameOverMessage');
+      const nextBtn = document.getElementById('nextPhaseBtn');
+      if (victory){
+        title.textContent = '🎉 Fase Completa!';
+        title.style.color = '#4CAF50';
+        if (nextBtn) nextBtn.style.display = 'inline-block';
+      } else {
+        title.textContent = '💣 Missão Falhada!';
+        title.style.color = '#FF6B6B';
+        if (nextBtn) nextBtn.style.display = 'none';
+      }
+      text.textContent = message;
+      overlay.classList.add('show');
+    }
 
     // ====== INICIALIZAÇÃO ======
     const player = new Player(100, GROUND_Y - 70);
@@ -499,6 +587,10 @@
       // organic replaced by paper (blue)
       new Bin(700, GROUND_Y - 70, 'paper')
     ];
+
+    // Visibility flags for gameplay (used to hide bins and NPC during boss battles)
+    let showBins = true;
+    let showNPC = true;
 
     let boss = null;
     let projectiles = [];
@@ -597,15 +689,18 @@
                     errors++;
                     updateUI();
                                                             if (errors >= 3 && gameState !== GAME_STATE.BOSS_BATTLE) {
-                                                              gameState = GAME_STATE.BOSS_BATTLE;
-                                                              boss = new Boss();
-                                                              trash = []; // Limpa o lixo da fase normal
-                                                              bins = [];
-                                                              // show boss spawn dialogue without changing gameState (keep BOSS_BATTLE)
-                                                              startDialogue(['👹 A MEGA-LIXEIRA CAÓTICA APARECEU! Use o lixo para derrotá-la!'], '', null, 48, false);
-                                                              updateBossHealth();
-                                                              updatePlayerHealth();
-                                                            }                  }
+  gameState = GAME_STATE.PLAYING; // pausa no modo normal
+  startBossBtn.style.display = 'block';
+
+  startDialogue(
+    ['⚠️ Você cometeu muitos erros! Prepare-se para enfrentar a Mega-Lixeira.'],
+    '',
+    null,
+    48,
+    false
+  );
+}
+                }
                   return;
                 }
               }
@@ -696,6 +791,28 @@
       ctx.arc(x + 10, y - 20, 40, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    function startBossBattle() {
+  gameState = GAME_STATE.BOSS_BATTLE;
+  boss = new Boss();
+  trash = [];
+  projectiles = [];
+  startBossBtn.style.display = 'none';
+  // Hide bins and NPC during the boss fight
+  showBins = false;
+  showNPC = false;
+
+  startDialogue(
+    ['👹 A MEGA-LIXEIRA CAÓTICA DESAFIA VOCÊ! Use o lixo como arma!'],
+    '',
+    null,
+    48,
+    false
+  );
+
+  updateBossHealth();
+  updatePlayerHealth();
+}
 
 
     // ====== LOOP ======
@@ -806,7 +923,13 @@
         drawTree(150, GROUND_Y - 60);
         drawTree(950, GROUND_Y - 60);
         for (let t of trash) t.draw();
+      }
+
+      // Desenha lixeiras e NPC somente se estiverem visíveis (controlado por startBossBattle/showGameOver)
+      if (showBins) {
         for (let b of bins) b.draw();
+      }
+      if (showNPC) {
         npc.draw();
       }
 

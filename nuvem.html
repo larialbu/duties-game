@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fase do Clima</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:Arial, sans-serif;
+  background:linear-gradient(135deg,#87CEEB 0%,#E0F6FF 100%);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+}
+
+#gameContainer{
+  position:relative;
+  width:1200px;
+  height:600px;
+  background:linear-gradient(to bottom,#87CEEB 0%,#90EE90 70%,#228B22 100%);
+  border:5px solid #333;
+  border-radius:10px;
+  overflow:hidden;
+}
+
+canvas{display:block}
+
+#ui{
+  position:absolute;
+  top:20px;left:20px;right:20px;
+  color:white;
+  font-size:18px;
+  font-weight:bold;
+  z-index:10;
+}
+
+.ui-row{
+  display:flex;
+  justify-content:space-between;
+  background:rgba(0,0,0,.3);
+  padding:10px 15px;
+  border-radius:5px;
+}
+
+#dialog{
+  position:absolute;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#fff;
+  color:#000;
+  padding:20px;
+  border-radius:10px;
+  max-width:800px;
+  border:3px solid #FFD700;
+  display:none;
+  z-index:20;
+}
+
+#dialog.show{display:block}
+
+#gameOver{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  background:rgba(0,0,0,.9);
+  color:white;
+  padding:40px;
+  border-radius:10px;
+  display:none;
+  z-index:50;
+  text-align:center;
+  border:4px solid #FFD700;
+}
+#gameOver.show{display:block}
+
+/* style game over buttons consistently with index.html */
+#gameOver button{background:#4CAF50;color:white;border:none;padding:12px 30px;font-size:18px;border-radius:5px;cursor:pointer;margin-top: 10px;}
+#gameOver button:hover{background:#45a049}
+
+/* seizure / epilepsy warning modal */
+#seizureAlert{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:60}
+#seizureAlert .card{background:#fff;color:#000;padding:20px;border-radius:10px;max-width:720px;border:3px solid #FFD700;text-align:left}
+#seizureAlert .card h2{margin-bottom:8px}
+#seizureAlert .card p{margin-bottom:12px}
+#seizureAlert .actions{display:flex;gap:12px;justify-content:flex-end}
+#seizureAlert .actions button{background:#4CAF50;color:white;border:none;padding:10px 18px;font-size:16px;border-radius:6px;cursor:pointer}
+#seizureAlert .actions button.secondary{background:#FF6B6B}
+#seizureAlert.hidden{display:none}
+
+/* health bar styles (same visual as Mega-Lixeira boss) */
+.health-bar{width:220px;height:28px;background:rgba(51,51,51,0.8);border:2px solid white;border-radius:5px;overflow:hidden;margin-top:5px}
+.health-fill{height:100%;background:linear-gradient(90deg,#00BFFF,#1E90FF);width:100%;transition:width .2s}
+</style>
+</head>
+
+<body>
+<div id="gameContainer">
+<canvas id="gameCanvas" width="1200" height="600"></canvas>
+
+<div id="ui">
+  <div class="ui-row">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span>❤️ Vida: <span id="playerLife">10</span></span>
+      <div id="playerBar" class="health-bar" style="margin-left:8px;">
+        <div class="health-fill" id="playerHealth" style="background:linear-gradient(90deg,#4CAF50,#8BC34A);width:100%"></div>
+      </div>
+      <div id="playerLifePercent" style="min-width:36px;text-align:right;color:white;font-weight:bold">100%</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-weight:bold;color:white">☁️ Nuvem:</div>
+      <div class="health-bar" style="padding:3px">
+        <div id="cloudLifeFill" class="health-fill" style="width:100%"></div>
+      </div>
+      <div id="cloudLifePercent" style="min-width:36px;text-align:right;color:white;font-weight:bold">100%</div>
+    </div>
+  </div>
+</div>
+
+<div id="dialog"></div>
+
+<!-- Epilepsy / Seizure warning shown before dialog/game starts -->
+<div id="seizureAlert">
+  <div class="card">
+    <h2>⚠️ Aviso: Possível Sensibilidade a Luzes Piscantes</h2>
+    <p>Este jogo contém efeitos de iluminação e flashes que podem ser desconfortáveis ou provocar crises em pessoas com epilepsia fotossensível.</p>
+    <p>Se você for sensível a luzes piscantes, por favor não jogue ou consulte um médico antes de prosseguir.</p>
+    <div class="actions">
+      <button id="seizureDecline" class="secondary" > <a href="index.html">Sair</a></button>
+      <button id="seizureAccept">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<div id="gameOver">
+  <h1 id="gameOverTitle">☀️ Parabéns!</h1>
+  <p id="gameOverMessage">Você venceu a tempestade com a reciclagem 🌱</p>
+  <button onclick="location.reload()">Jogar Novamente</button>
+</div>
+
+<img id="playerImg" src="imagem/AUGUSTINHO.01.gif" hidden>
+<img id="cloudImg" src="imagem/nuvem-luta.png" hidden>
+<img id="reporterImg" src="imagem/reporter-removebg-preview.png" hidden>
+<img id="reporterPixelImg" src="imagem/reporter.pixel.png" hidden>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+/* ===== DIMENSÕES AJUSTADAS ===== */
+const GAME_WIDTH = 1200;
+const GAME_HEIGHT = 600;
+const GROUND_Y = 480;
+
+/* ===== FÍSICA ===== */
+const GRAVITY_UP = 0.6;
+const GRAVITY_DOWN = 1.4;
+const JUMP_FORCE = -16;
+
+let keys = {};
+let gameState = 'dialog';
+// block inputs while seizure alert is active
+let seizureAlertActive = true;
+// Dialog lines for Reporter in the climate level (intro, how-to, reminder)
+let dialogLines = [
+  `Olá! Eu sou a Reporter prazer em te ver. Vou te mostrar como ajudar o céu.`,
+  `Neste mini-jogo, colete os símbolos de reciclagem e toque neles para reduzir a poluição na nuvem. Cada símbolo vale pontos e limpa o céu.`,
+  `Lembre-se: recicle sempre que possível. Cada símbolo de reciclagem ajuda a reduzir a poluição!`,
+];
+let currentDialogLine = 0;
+
+const playerImg = document.getElementById('playerImg');
+const cloudImg = document.getElementById('cloudImg');
+const reporterImg = document.getElementById('reporterImg');
+const reporterPixelImg = document.getElementById('reporterPixelImg');
+let showReporterSprite = false; // show pixel sprite in-world during dialogue
+
+// Cloud life bar helper
+const cloudLifeFillEl = document.getElementById('cloudLifeFill');
+const cloudLifePctEl = document.getElementById('cloudLifePercent');
+
+function updateCloudBar(){
+  const pct = Math.max(0, cloud.life) / CLOUD_MAX_LIFE;
+  cloudLifeFillEl.style.width = (pct * 100) + '%';
+  cloudLifePctEl.innerText = Math.ceil(pct * 100) + '%';
+}
+
+/* ===== PLAYER ===== */
+class Player{
+  constructor(){
+    this.w = 90;
+    this.h = 90;
+    this.x = 150;
+    this.y = GROUND_Y - this.h;
+    this.vy = 0;
+    this.onGround = true;
+    this.life = 10; // start with 10 life (each ray deals 1 damage)
+    this.maxLife = this.life;
+    this.direction = 1; // 1 = right, -1 = left
+  }
+  update(){
+    if(keys['a']) { this.x -= 5; this.direction = -1; }
+    if(keys['d']) { this.x += 5; this.direction = 1; }
+
+    if(this.vy < 0) this.vy += GRAVITY_UP;
+    else this.vy += GRAVITY_DOWN;
+
+    this.y += this.vy;
+
+    if(this.y >= GROUND_Y - this.h){
+      this.y = GROUND_Y - this.h;
+      this.vy = 0;
+      this.onGround = true;
+    }
+  }
+  jump(){
+    if(this.onGround){
+      this.vy = JUMP_FORCE;
+      this.onGround = false;
+    }
+  }
+  draw(){
+    ctx.save();
+    // Flip horizontally when facing right (sprite art faces left by default)
+    if (this.direction === 1) {
+      ctx.translate(this.x + this.w, this.y);
+      ctx.scale(-1, 1);
+      ctx.translate(-this.x, -this.y);
+    }
+    ctx.drawImage(playerImg,this.x,this.y,this.w,this.h);
+    ctx.restore();
+  }
+  hit(dmg){
+    this.life -= dmg;
+    if(this.life < 0) this.life = 0;
+    document.getElementById('playerLife').innerText = this.life;
+    if(typeof updatePlayerHealth === 'function') updatePlayerHealth();
+  }
+  box(){
+    return {x:this.x,y:this.y,w:this.w,h:this.h};
+  }
+}
+
+/* ===== NUVEM ===== */
+class Cloud{
+  constructor(){
+    // span the full width of the play area
+    this.w = 1200; // full game width
+    this.h = 360; // keep height (you can tweak this if you want it taller/shorter)
+    this.x = 0; // align with left edge since width == GAME_WIDTH
+    this.y = 70; // lowered to sit a bit lower on screen
+    this.life = 100;
+    this.timer = 0;
+    this.flashTimer = 0; // frames remaining for flash
+    this.flashTimerMax = 0; // remember initial flash length to compute overlay alpha
+  }
+  update(){
+    this.timer++;
+    // Spawn rays at multiple positions across the allowed spawn area
+    if(this.timer % 80 === 0) {
+      // spawn between 1 and 3 rays per burst
+      const count = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        // spawn rays across the width of the cloud so bolts originate underneath it
+        const minX = this.x + 10;
+        const maxX = this.x + this.w - 10;
+        const rx = minX + Math.random() * (maxX - minX);
+        const ry = this.y + this.h - 30; // start rays from near the bottom of the cloud
+        rays.push(new Ray(rx, ry));
+      }
+    }
+    // occasionally trigger a lightning flash effect
+    // more frequent and longer flashes (larger, full-screen effect)
+    if(this.timer % 30 === 0){
+      if (Math.random() < 0.8) {
+        this.flashTimer = 12 + Math.floor(Math.random() * 28); // 12..39 frames
+        this.flashTimerMax = this.flashTimer;
+      }
+    }
+    if(this.flashTimer > 0) this.flashTimer--;
+    if(this.timer % 65 === 0) recycles.push(new Recycle());
+  }
+  draw(){
+    if(this.life > 0){
+      const cx = this.x + this.w/2;
+      const cy = this.y + this.h/2;
+      // if flashing, draw a soft radial glow behind the cloud
+      if(this.flashTimer > 0){
+        ctx.save();
+        const grad = ctx.createRadialGradient(cx, cy, this.w*0.15, cx, cy, this.w*1.2);
+        grad.addColorStop(0, 'rgba(255,255,224,0.65)');
+        grad.addColorStop(0.6, 'rgba(255,255,224,0.15)');
+        grad.addColorStop(1, 'rgba(255,255,224,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, this.w*0.95, this.h*1.05, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // draw the cloud image
+      ctx.drawImage(cloudImg,this.x,this.y,this.w,this.h);
+
+      // draw quick lightning strokes around the cloud when flashing
+      if(this.flashTimer > 0){
+        for(let i=0;i<4;i++){
+          const sx = this.x + Math.random() * this.w;
+          const sy = this.y + Math.random() * 30;
+          const segs = 3 + Math.floor(Math.random()*3);
+          ctx.strokeStyle = 'rgba(255,255,200,' + (0.6 + Math.random()*0.4) + ')';
+          ctx.lineWidth = 2 + Math.random()*3;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          let px = sx, py = sy;
+          for(let s=0;s<segs;s++){
+            px += (Math.random() - 0.5) * 40;
+            py += 20 + Math.random() * 30;
+            ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+/* ===== ATAQUES ===== */
+class Ray{
+  constructor(x, y = 180){
+    this.x = x;
+    this.y = y;
+    this.speed = 9;
+    this.size = 26;
+  }
+  update(){ this.y += this.speed; }
+  draw(){
+    ctx.font = "40px Arial";
+    ctx.fillText("⚡",this.x,this.y);
+  }
+}
+
+class Recycle{
+  constructor(){
+    // spawn inside a 700px-wide zone centered horizontally
+    const center = GAME_WIDTH / 2;
+    const minX = center - 350;
+    this.x = minX + Math.random() * 700;
+    this.y = -20;
+    this.speed = 3.5;
+  }
+  update(){ this.y += this.speed; }
+  draw(){
+    ctx.font = "32px Arial";
+    ctx.fillText("♻️",this.x,this.y);
+  }
+}
+
+const player = new Player();
+const cloud = new Cloud();
+const CLOUD_MAX_LIFE = cloud.life;
+let rays = [];
+let recycles = [];
+// Initialize UI life display according to player's life (now 10)
+document.getElementById('playerLife').innerText = player.life;
+// Initialize cloud life bar
+updateCloudBar();
+// Initialize player health bar
+function updatePlayerHealth(){
+  const pct = Math.max(0, player.life) / player.maxLife;
+  const el = document.getElementById('playerHealth');
+  const pctEl = document.getElementById('playerLifePercent');
+  if(el) el.style.width = (pct * 100) + '%';
+  if(pctEl) pctEl.innerText = Math.ceil(pct * 100) + '%';
+}
+updatePlayerHealth();
+
+/* ===== COLISÃO ===== */
+function collide(a,b){
+  return a.x < b.x + b.w &&
+         a.x + a.w > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.h > b.y;
+}
+
+/* ===== DIÁLOGO ===== */
+function showDialog(){
+  // make sure the game is in dialog state
+  gameState = 'dialog';
+  const d = document.getElementById('dialog');
+  const text = dialogLines[currentDialogLine] || '';
+  d.innerHTML = `
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <img src="${reporterImg.src}" width="80">
+      <div>
+        <strong>Reporter</strong>
+        <p>${text}</p>
+      </div>
+    </div>`;
+  d.classList.add('show');
+  // show the reporter pixel sprite on the opposite side during dialog
+  showReporterSprite = true;
+}
+
+/* ===== CONTROLES ===== */
+window.addEventListener('keydown',e=>{
+  // ignore inputs while seizure alert is visible
+  if (seizureAlertActive) return;
+  // normalize single-character keys to lowercase so 'E' and 'e' both work
+  const k = (e.key && e.key.length === 1) ? e.key.toLowerCase() : e.key;
+  keys[k] = true;
+  if(k === 'w') player.jump();
+  if(k === 'e' && gameState === 'dialog'){
+    // advance dialog; if there are more lines, show next, else start game
+    currentDialogLine++;
+    if(currentDialogLine < dialogLines.length){
+      showDialog();
+    } else {
+      document.getElementById('dialog').classList.remove('show');
+      gameState = 'game';
+      // hide reporter pixel sprite when the game starts
+      showReporterSprite = false;
+      // reset dialog index for potential re-use
+      currentDialogLine = 0;
+    }
+  }
+});
+window.addEventListener('keyup',e=>{
+  const k = (e.key && e.key.length === 1) ? e.key.toLowerCase() : e.key;
+  keys[k] = false;
+});
+
+// Seizure modal handlers
+document.getElementById('seizureAccept').addEventListener('click', ()=>{
+  document.getElementById('seizureAlert').classList.add('hidden');
+  seizureAlertActive = false;
+  // ensure dialog starts and inputs go to dialog state
+  currentDialogLine = 0;
+  showReporterSprite = true;
+  showDialog();
+});
+document.getElementById('seizureDecline').addEventListener('click', ()=>{
+  // go back to index (or simply reload); safer to redirect to homepage
+  window.location.href = 'index.html';
+});
+
+/* ===== LOOP ===== */
+function loop(){
+  ctx.clearRect(0,0,GAME_WIDTH,GAME_HEIGHT);
+
+  // background: gray when the actual gameplay starts, otherwise sky blue
+  if (gameState === 'game') ctx.fillStyle = '#A9A9A9';
+  else ctx.fillStyle = "#87CEEB";
+  ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);
+
+  ctx.fillStyle = "#6B8E23";
+  ctx.fillRect(0,GROUND_Y,GAME_WIDTH,200);
+
+  if(gameState === 'game'){
+    player.update();
+    cloud.update();
+
+    rays.forEach(r=>r.update());
+    recycles.forEach(r=>r.update());
+
+    rays.forEach((r,i)=>{
+      if(r.y > GAME_HEIGHT) rays.splice(i,1);
+        if(collide(player.box(),{x:r.x,y:r.y,w:20,h:20})){
+          // each ray deals 1 damage (player starts at 10 life)
+          player.hit(1);
+        rays.splice(i,1);
+      }
+    });
+
+    recycles.forEach((r,i)=>{
+      // use a slightly larger hitbox for the emoji text and update cloud life bar
+      if(collide(player.box(),{x:r.x,y:r.y,w:36,h:36})){
+        // Reduce cloud life by 10 per recycle pick (steps of 10)
+        cloud.life = Math.max(0, cloud.life - 10);
+        recycles.splice(i,1);
+        updateCloudBar();
+      }
+    });
+  }
+
+  cloud.draw();
+  // draw Reporter pixel sprite on the opposite (right) side during dialog
+  if (showReporterSprite && reporterPixelImg && reporterPixelImg.complete) {
+    const gw = 120, gh = 120;
+    const gx = GAME_WIDTH - 220;
+    const gy = GROUND_Y - gh + 10;
+    ctx.drawImage(reporterPixelImg, gx, gy, gw, gh);
+    // draw a yellow 'E' above Reporter's head during dialog (single-color yellow)
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 30px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('E', gx + gw/2, gy - 8);
+  }
+  player.draw();
+  rays.forEach(r=>r.draw());
+  recycles.forEach(r=>r.draw());
+
+  // full-screen flash overlay when cloud is flashing (creates strong blink)
+  if (cloud.flashTimer > 0 && cloud.flashTimerMax > 0) {
+    const alpha = 0.15 + 0.55 * (cloud.flashTimer / cloud.flashTimerMax); // 0.15..0.7
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    ctx.restore();
+  }
+
+  // victory / defeat handling
+  const go = document.getElementById('gameOver');
+  if(player.life <= 0 && gameState !== 'over'){
+    go.innerHTML = `
+      <h1 id="gameOverTitle">😢 Você perdeu</h1>
+      <p id="gameOverMessage">A tempestade venceu. Tente novamente.</p>
+      <button onclick="location.reload()">Jogar Novamente</button>`;
+    go.classList.add('show');
+    gameState = 'over';
+  } else if(cloud.life <= 0 && gameState !== 'over'){
+    // player wins
+    go.innerHTML = `
+      <h1 id="gameOverTitle">☀️ Parabéns!</h1>
+      <p id="gameOverMessage">Você venceu a tempestade com a reciclagem 🌱</p>
+      <button onclick="location.reload()">Jogar Novamente</button>`;
+    go.classList.add('show');
+    gameState = 'over';
+    ctx.font = "140px Arial";
+    ctx.fillText("☀️", GAME_WIDTH/2 - 70, 260);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+showDialog();
+loop();
+</script>
+</div>
+</body>
+</html>
