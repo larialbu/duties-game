@@ -269,7 +269,7 @@ class Cloud{
         const minX = this.x + 10;
         const maxX = this.x + this.w - 10;
         const rx = minX + Math.random() * (maxX - minX);
-        const ry = this.y + this.h - 30; // start rays from near the bottom of the cloud
+        const ry = -20; // start rays from the top of the screen
         rays.push(new Ray(rx, ry));
       }
     }

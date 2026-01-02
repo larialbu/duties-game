@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>O Protetor dos Mares</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;background:linear-gradient(135deg,#00BFFF 0%,#1E90FF 100%);display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}
+    #gameContainer{position:relative;width:1200px;height:600px;background:linear-gradient(to bottom,#1E90FF 0%,#008080 70%,#004d4d 100%);border:5px solid #333;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.3);overflow:hidden}
+    canvas{display:block;background:inherit}
+    #ui{position:absolute;top:20px;left:20px;right:20px;color:white;font-size:18px;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5);z-index:10}
+    .ui-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;background:rgba(0,0,0,0.3);padding:10px 15px;border-radius:5px}
+    #dialog{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#ffffff;color:#000000;padding:20px 24px;border-radius:10px;max-width:600px;text-align:left;z-index:20;border:3px solid #FFD700;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.12)}
+    #dialog.show{display:block;animation:slideUp .3s ease-out}
+    @keyframes slideUp{from{transform:translateX(-50%) translateY(100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+    #cleanProgress{position:absolute;top:80px;right:20px;background:rgba(0,0,0,0.3);padding:10px;border-radius:5px;display:none;z-index:15}
+    #playerHealthBar{position:absolute;top:80px;left:20px;background:rgba(0,0,0,0.3);padding:10px;border-radius:5px;display:none;z-index:15}
+    .progress-bar,.health-bar{width:200px;height:30px;background:#333;border:2px solid white;border-radius:5px;overflow:hidden;margin-top:5px}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#4CAF50,#8BC34A);width:0%;transition:width .5s}
+    .health-fill{height:100%;background:linear-gradient(90deg,#4CAF50,#8BC34A);width:100%;transition:width .2s}
+    #gameOver{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:white;padding:40px;border-radius:10px;text-align:center;display:none;z-index:100;border:5px solid #FFD700}
+    #gameOver.show{display:block;animation:zoomIn .4s ease-out}
+    @keyframes zoomIn{from{transform:translate(-50%,-50%) scale(.5);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+    #gameOver h1{font-size:48px;margin-bottom:20px}
+    #gameOver p{font-size:24px;margin-bottom:30px}
+    #gameOver button{background:#4CAF50;color:white;border:none;padding:12px 30px;font-size:18px;border-radius:5px;cursor:pointer}
+    #gameOver button:hover{background:#45a049}
+    #startBattleBtn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:16px 32px;font-size:24px;font-weight:bold;background:#FF6B6B;color:white;border:none;border-radius:8px;cursor:pointer;z-index:50;display:none}
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+    <button id="startBattleBtn">⚔️ Iniciar Batalha</button>
+    <div id="ui">
+      <div class="ui-row">
+        <span>Lixo Coletado: <span id="collectedCount">0</span> / 15</span>
+      </div>
+    </div>
+    <div id="playerHealthBar">
+        <div style="color:white;margin-bottom:5px;">❤️ Sua Vida</div>
+        <div class="health-bar"><div class="health-fill" id="playerHealthFill"></div></div>
+    </div>
+    <div id="cleanProgress">
+      <div style="color:white;margin-bottom:5px;">🌊 Progresso da Limpeza</div>
+      <div class="progress-bar"><div class="progress-fill" id="cleanProgressFill"></div></div>
+    </div>
+    <div id="dialog"></div>
+    <div id="gameOver">
+      <h1 id="gameOverTitle"></h1>
+      <p id="gameOverMessage"></p>
+      <button onclick="location.reload()">Jogar Novamente</button>
+    </div>
+    <!-- Imagens pré-carregadas -->
+    <img id="playerImg" src="imagem/AUGUSTINHO.01.gif" hidden>
+    <img id="cientistaImg" src="imagem/cientista-removebg-preview.png" hidden>
+    <img id="protetorImg" src="imagem/tubarao.png" hidden>
+    <img id="gosmaImg" src="imagem/gosma-removebg-preview.png" hidden>
+    <img id="plasticoImg" src="imagem/garrafa.plastico.png" hidden>
+    <img id="barrilImg" src="imagem/lata.1.gif" hidden>
+    <img id="papelImg" src="imagem/papel.png" hidden>
+    <img id="lataImg" src="imagem/lata.1.gif" hidden>
+    <img id="garrafaImg" src="imagem/garrafa.png" hidden>
+  </div>
+
+  <script>
+    // ====== CONFIG ======
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const GROUND_Y = 550;
+    const GRAVITY_UP = 0.65;
+    const GRAVITY_DOWN = 1.1;
+    const JUMP_FORCE = -15;
+
+    const GAME_STATE = { 
+  DIALOGUE: 'dialogue', 
+  PRE_BATTLE: 'pre_battle', 
+  BATTLE: 'battle', 
+  GAME_OVER: 'game_over',
+  END: 'end'
+};
+
+    let gameState = GAME_STATE.DIALOGUE;
+
+    const TOTAL_TRASH = 15;
+    let collectedTrash = 0;
+
+
+    const playerImg = document.getElementById('playerImg');
+    const cientistaImg = document.getElementById('cientistaImg');
+    const protetorImg = document.getElementById('protetorImg');
+    const gosmaImg = document.getElementById('gosmaImg');
+    const plasticoImg = document.getElementById('plasticoImg');
+    const barrilImg = document.getElementById('barrilImg');
+    const papelImg = document.getElementById('papelImg');
+    const lataImg = document.getElementById('lataImg');
+    const garrafaImg = document.getElementById('garrafaImg');
+    const startBattleBtn = document.getElementById('startBattleBtn');
+
+    // Helper to safely draw images only when fully loaded; draws fallback if missing
+    function imageReady(img) {
+        return img && img.complete && img.naturalWidth && img.naturalWidth > 0 && !img.dataset.broken;
+    }
+    function safeDrawImage(img, x, y, w, h, fallbackColor = '#666', label = '') {
+        if (imageReady(img)) {
+            ctx.drawImage(img, x, y, w, h);
+        } else {
+            ctx.fillStyle = fallbackColor;
+            ctx.fillRect(x, y, w, h);
+            if (label) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, x + w / 2, y + h / 2 + 4);
+            }
+        }
+    }
+    // Attach error handlers so we can detect broken images early and optionally replace external fallbacks
+    [playerImg, cientistaImg, protetorImg, gosmaImg, plasticoImg, barrilImg, papelImg, lataImg, garrafaImg].forEach(img => {
+        img.addEventListener('error', () => {
+            console.warn('Image failed to load:', img.id, img.src);
+            img.dataset.broken = 'true';
+            // Optional fallback: if image used an external URL, try a local fallback where available
+            if (img.id === 'barrilImg' || img.id === 'lataImg') img.src = 'imagem/lata.1.gif';
+            if (img.id === 'papelImg') img.src = 'imagem/papel.png';
+            if (img.id === 'garrafaImg') img.src = 'imagem/garrafa.png';
+        }, { once: true });
+    });
+
+    // ====== CLASSES ======
+    class Player {
+        constructor(x, y) {
+            this.x = x; this.y = y; this.width = 90; this.height = 90;
+            this.groundOffset = 15; this.velocityY = 0; this.velocityX = 0;
+            this.speed = 5; this.isOnGround = true; this.direction = 1;
+            this.health = 100; this.maxHealth = 100;
+        }
+        update(keys) {
+            this.velocityX = 0;
+            if (keys['a']) { this.velocityX = -this.speed; this.direction = -1; }
+            if (keys['d']) { this.velocityX = this.speed; this.direction = 1; }
+            this.x += this.velocityX;
+
+            if (this.x < 0) this.x = 0;
+            if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+
+            if (this.velocityY < 0) this.velocityY += GRAVITY_UP;
+            else this.velocityY += GRAVITY_DOWN;
+            this.y += this.velocityY;
+
+            this.isOnGround = false;
+            const groundLevel = GROUND_Y - this.height + this.groundOffset;
+            if (this.y >= groundLevel) { this.y = groundLevel; this.velocityY = 0; this.isOnGround = true; }
+        }
+        jump() { if (this.isOnGround) { this.velocityY = JUMP_FORCE; this.isOnGround = false; } }
+        draw() {
+            ctx.save();
+            if (this.direction === 1) {
+                ctx.translate(this.x + this.width, this.y);
+                ctx.scale(-1, 1);
+                ctx.translate(-this.x, -this.y);
+            }
+            safeDrawImage(playerImg, this.x, this.y, this.width, this.height, '#4CAF50', 'Jogador');
+            ctx.restore();
+        }
+        shoot() { waterProjectiles.push(new WaterProjectile(this.x + this.width / 2, this.y + this.height / 2, this.direction)); }
+        takeDamage(amount) { this.health -= amount; if (this.health < 0) this.health = 0; updatePlayerHealth(); }
+        getCollisionBox() { return { x: this.x, y: this.y, width: this.width, height: this.height }; }
+    }
+
+    class Npc {
+        constructor(x, y, img) { this.x = x; this.y = y; this.width = 100; this.height = 120; this.img = img; this.visible = true; }
+        draw() {
+            if (!this.visible) return;
+            safeDrawImage(this.img, this.x, this.y, this.width, this.height, '#FFD700', 'NPC');
+            if (gameState === GAME_STATE.DIALOGUE) {
+                ctx.fillStyle = '#FFD700'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('E', this.x + this.width / 2, this.y - 10);
+            }
+        }
+    }
+
+    class Boss {
+        constructor(x, y, img) { this.x = x; this.y = y; this.width = 150; this.height = 150; this.img = img; this.attackCooldown = 240; this.aggression = 1.0; }
+        update() {
+            this.attackCooldown--;
+            if (this.attackCooldown <= 0) {
+                projectiles.push(new Projectile(this.x, this.y + this.height / 2, 'left'));
+                // Base interval between attacks (frames). Higher aggression => faster attacks (smaller cooldown).
+                const base = 180 + Math.random() * 120; // ~3s to 5s at 60fps
+                this.attackCooldown = Math.max(30, Math.floor(base / this.aggression));
+            }
+        }
+        draw() { ctx.save(); ctx.globalAlpha = 0.5 + 0.5 * this.aggression; safeDrawImage(this.img, this.x, this.y, this.width, this.height, '#AA0000', 'Boss'); ctx.restore(); }
+        getCollisionBox() { return { x: this.x, y: this.y, width: this.width, height: this.height }; }
+    }
+
+    class Trash {
+     constructor(x, y, type) { 
+        this.x = x; 
+        this.y = y; 
+        this.type = type; 
+        this.width = 100; 
+        this.height = 100; 
+        this.img = this.getImage(); 
+        }
+        getImage() {
+            switch(this.type) {
+                case 'plastico': return plasticoImg;
+                case 'barril': return barrilImg;
+                case 'lata': return lataImg;
+                case 'papel': return papelImg;
+                case 'garrafa': return garrafaImg;
+                default: return plasticoImg;
+            }
+        }
+        draw() { safeDrawImage(this.img, this.x, this.y, this.width, this.height, '#777', 'Lixo'); }
+        getCollisionBox() { return { x: this.x, y: this.y, width: this.width, height: this.height }; }
+    }
+
+    class Projectile { // Boss attack
+ constructor(x, y, direction) { 
+        this.x = x; 
+        this.y = y; 
+        this.width = 50; 
+        this.height = 50; 
+        this.speed = 5 + Math.random() * 2; 
+        this.velocityX = direction === 'left' ? -this.speed : this.speed; 
+    }ww
+
+        update() { this.x += this.velocityX; }
+        draw() { safeDrawImage(gosmaImg, this.x, this.y, this.width, this.height, '#8B008B', 'Gosma'); }
+        getCollisionBox() { return { x: this.x, y: this.y, width: this.width, height: this.height }; }
+    }
+
+    class WaterProjectile { // Player attack
+        constructor(x, y, direction) { this.x = x; this.y = y; this.radius = 12; this.speed = 8; this.velocityX = direction * this.speed; }
+        update() { this.x += this.velocityX; }
+        draw() { ctx.fillStyle = 'rgba(0, 150, 255, 0.8)'; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill(); }
+        getCollisionBox() { return { x: this.x - this.radius, y: this.y - this.radius, width: this.radius * 2, height: this.radius * 2 }; }
+    }
+
+    // ====== GAME LOGIC & STATE ======
+    const player = new Player(100, GROUND_Y - 90);
+    const cientista = new Npc(950, GROUND_Y - 120, cientistaImg);
+    const protetor = new Boss(1000, GROUND_Y - 150, protetorImg);
+    
+    let trashItems = [];
+    let projectiles = [];
+    let waterProjectiles = [];
+    const keys = {};
+
+    let activeDialogues = [];
+    let currentDialogueIndex = 0;
+
+    function startDialogue(lines) {
+        activeDialogues = lines;
+        currentDialogueIndex = 0;
+        gameState = GAME_STATE.DIALOGUE;
+        showDialogueLine(currentDialogueIndex);
+    }
+    
+    function showDialogueLine(index) {
+        const dialogBox = document.getElementById('dialog');
+        const line = activeDialogues[index];
+        if (!line) {
+            dialogBox.classList.remove('show');
+            gameState = GAME_STATE.PRE_BATTLE;
+            startBattleBtn.style.display = 'block';
+            return;
+        }
+        dialogBox.innerHTML = `<div style="display:grid; grid-template-columns: auto 1fr; gap:16px; align-items:start;"><img src="${cientistaImg.src}" width="60" style="grid-column: 1; grid-row: 1 / span 2;"><div><strong style="font-size:18px">Cientista:</strong><p style="margin-top:5px">${line}</p></div></div>`;
+        dialogBox.classList.add('show');
+    }
+
+    function startBattle() {
+        gameState = GAME_STATE.BATTLE;
+        startBattleBtn.style.display = 'none';
+        cientista.visible = false;
+        document.getElementById('cleanProgress').style.display = 'block';
+        document.getElementById('playerHealthBar').style.display = 'block';
+    }
+
+    function showGameOver(isVictory, message) {
+        gameState = GAME_STATE.GAME_OVER;
+        const overlay = document.getElementById('gameOver');
+        overlay.querySelector('h1').textContent = isVictory ? 'Equilíbrio Restaurado!' : 'Oceano Perdido...';
+        overlay.querySelector('p').textContent = message;
+        overlay.classList.add('show');
+    }
+
+    function showEndDialogueLine() {
+  const dialogBox = document.getElementById('dialog');
+  const line = activeDialogues[currentDialogueIndex];
+
+  if (!line) {
+    dialogBox.classList.remove('show');
+    // 👉 LINK PARA O FINAL
+    window.location.href = "end.html";
+    return;
+  }
+
+  dialogBox.innerHTML = `
+    <div style="display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:start;">
+      <img src="${protetorImg.src}" width="70">
+      <div>
+        <strong style="font-size:18px;color:#0066cc">Protetor dos Mares:</strong>
+        <p style="margin-top:5px">${line}</p>
+        <p style="margin-top:10px;font-size:14px;color:#555">[Pressione E para continuar]</p>
+      </div>
+    </div>
+  `;
+  dialogBox.classList.add('show');
+}
+
+
+    function startEndDialogue() {
+  gameState = GAME_STATE.END;
+  activeDialogues = endDialogLines;
+  currentDialogueIndex = 0;
+  showEndDialogueLine();
+}
+
+
+    function updatePlayerHealth() {
+        const healthPercent = (player.health / player.maxHealth) * 100;
+        document.getElementById('playerHealthFill').style.width = healthPercent + '%';
+    }
+
+    function updateUI() {
+      document.getElementById('collectedCount').textContent = collectedTrash;
+      const progress = collectedTrash / TOTAL_TRASH;
+      document.getElementById('cleanProgressFill').style.width = `${progress * 100}%`;
+      // aggression ranges from 1.0 (very aggressive) to 0.3 (calmer) as progress increases
+      protetor.aggression = 0.3 + (1 - progress) * 0.7;
+      if (collectedTrash >= TOTAL_TRASH) {
+  document.getElementById('cleanProgress').style.display = 'none';
+  document.getElementById('playerHealthBar').style.display = 'none';
+  startEndDialogue();
+}
+
+    }
+
+   function spawnTrash() {
+    if (trashItems.length < 5) {
+        const x = Math.random() * (canvas.width - 60);
+        const y = GROUND_Y - 90; // MESMA ALTURA DO PERSONAGEM
+        const types = ['plastico', 'barril', 'papel', 'lata', 'garrafa'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        trashItems.push(new Trash(x, y, type));
+    }
+}
+
+
+    // ====== CONTROLS & LOOP ======
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        keys[key] = true;
+        if (gameState === GAME_STATE.DIALOGUE && key === 'e') {
+            currentDialogueIndex++;
+            showDialogueLine(currentDialogueIndex);
+        } 
+        else if (gameState === GAME_STATE.END && key === 'e') {
+  currentDialogueIndex++;
+  showEndDialogueLine();
+}
+else if (gameState === GAME_STATE.BATTLE) {
+            if (key === 'w' && player.isOnGround) player.jump();
+            if (key === 'f') player.shoot();
+        }
+    });
+    window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+    startBattleBtn.addEventListener('click', startBattle);
+
+    function checkCollision(box1, box2) {
+        return box1.x < box2.x + box2.width && box1.x + box1.width > box2.x &&
+               box1.y < box2.y + box2.height && box1.y + box1.height > box2.y;
+    }
+
+    let trashSpawnTimer = 0;
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var grd = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grd.addColorStop(0, "#1E90FF"); grd.addColorStop(1, "#008080");
+        ctx.fillStyle = grd; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#004d4d'; ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+        player.draw();
+        if (gameState !== GAME_STATE.BATTLE) {
+    cientista.draw();
+        }
+
+        if (gameState === GAME_STATE.BATTLE) {
+            player.update(keys);
+            protetor.update();
+            protetor.draw();
+            trashItems.forEach(item => item.draw());
+
+            trashItems = trashItems.filter(item => {
+    if (checkCollision(player.getCollisionBox(), item.getCollisionBox())) {
+        collectedTrash++;
+        updateUI();
+        return false; // remove o lixo
+    }
+    return true;
+});
+
+            if (--trashSpawnTimer <= 0) { spawnTrash(); trashSpawnTimer = 120; }
+
+            projectiles.forEach((p, i) => {
+                p.update(); p.draw();
+                if (checkCollision(player.getCollisionBox(), p.getCollisionBox())) { projectiles.splice(i, 1); player.takeDamage(10); }
+                else if (p.x < 0) projectiles.splice(i, 1);
+            });
+            
+            waterProjectiles.forEach((wp, i) => {
+                wp.update(); wp.draw();
+                if (checkCollision(protetor.getCollisionBox(), wp.getCollisionBox())) { protetor.attackCooldown += 50; waterProjectiles.splice(i, 1); }
+                else if (wp.x > canvas.width || wp.x < 0) waterProjectiles.splice(i, 1);
+            });
+
+            if (player.health <= 0) showGameOver(false, "O oceano não pôde ser salvo... Tente novamente.");
+        }
+        
+        if (gameState !== GAME_STATE.GAME_OVER) requestAnimationFrame(gameLoop);
+    }
+
+    const dialogLines = [
+        "A poluição dos mares aumentou drasticamente pela negligência humana.",
+        "O Protetor dos Mares, uma entidade ancestral, enlouqueceu com tanta destruição.",
+        "Vi suas vitórias e sei que pode nos ajudar. Acalme o Protetor limpando o oceano!"
+    ];
+
+    const endDialogLines = [
+  "Você conseguiu... O oceano volta a respirar.",
+  "Por muito tempo lutei tomado pela dor e pela poluição.",
+  "Mas suas ações mostraram que ainda há esperança para os mares.",
+  "Cada lixo recolhido salvou vidas marinhas e restaurou o equilíbrio.",
+  "Leve essa mensagem ao mundo humano: cuidar do oceano é cuidar da vida.",
+  "Obrigado, guardião dos mares."
+];
+
+    
+    startDialogue(dialogLines);
+    updateUI();
+    updatePlayerHealth();
+    gameLoop();
+  </script>
+</body>
+</html>
