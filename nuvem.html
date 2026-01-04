@@ -9,7 +9,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 
 body{
-  font-family:Arial, sans-serif;
+  font-family:Arial, sans-serif; 
   background:linear-gradient(135deg,#87CEEB 0%,#E0F6FF 100%);
   display:flex;
   justify-content:center;
@@ -130,16 +130,19 @@ canvas{display:block}
     <p>Este jogo contém efeitos de iluminação e flashes que podem ser desconfortáveis ou provocar crises em pessoas com epilepsia fotossensível.</p>
     <p>Se você for sensível a luzes piscantes, por favor não jogue ou consulte um médico antes de prosseguir.</p>
     <div class="actions">
-      <button id="seizureDecline" class="secondary" > <a href="index.html">Sair</a></button>
+      <button id="seizureDeclineFlashes" class="secondary">Jogar sem flashes</button>
       <button id="seizureAccept">Entendi</button>
     </div>
   </div>
 </div>
 
 <div id="gameOver">
-  <h1 id="gameOverTitle">☀️ Parabéns!</h1>
-  <p id="gameOverMessage">Você venceu a tempestade com a reciclagem 🌱</p>
-  <button onclick="location.reload()">Jogar Novamente</button>
+  <h1 id="gameOverTitle"></h1>
+  <p id="gameOverMessage"></p>
+  <div style="display:flex;gap:10px;justify-content:center">
+    <button onclick="location.reload()">Jogar Novamente</button>
+    <button id="nextPhaseBtn" onclick="goToMarPhase()" style="display:none">Ir para o Oceano 🌊</button>
+  </div>
 </div>
 
 <img id="playerImg" src="imagem/AUGUSTINHO.01.gif" hidden>
@@ -165,11 +168,12 @@ let keys = {};
 let gameState = 'dialog';
 // block inputs while seizure alert is active
 let seizureAlertActive = true;
+let flashingEffectsEnabled = true;
 // Dialog lines for Reporter in the climate level (intro, how-to, reminder)
 let dialogLines = [
-  `Olá! Eu sou a Reporter prazer em te ver. Vou te mostrar como ajudar o céu.`,
-  `Neste mini-jogo, colete os símbolos de reciclagem e toque neles para reduzir a poluição na nuvem. Cada símbolo vale pontos e limpa o céu.`,
-  `Lembre-se: recicle sempre que possível. Cada símbolo de reciclagem ajuda a reduzir a poluição!`,
+  `Olá! Eu sou a Reporter prazer em te ver. As nuvens devido aos problemas climáticos estão cada vez mais perigosas e estão atacando todas as pessoas!`,
+  `Para ajudar com isso, você deve coletar os símbolos de reciclagem que caem do céu e assim enfraquecer a nuvem! Mas cuidado, as nuvens também lançam raios que podem te atingir!`,
+  `Essas mudanças ocorrem principalmente por conta da poluição, do desmatamento e do excesso de lixo no planeta causando um efeito estufa em que os gases poluentes afetam a camada de ozônio e causam mudanças em relação ao clima, boa sorte augustinho na sua missão!`,
 ];
 let currentDialogLine = 0;
 
@@ -273,13 +277,15 @@ class Cloud{
         rays.push(new Ray(rx, ry));
       }
     }
-    // occasionally trigger a lightning flash effect
-    // more frequent and longer flashes (larger, full-screen effect)
-    if(this.timer % 30 === 0){
-      if (Math.random() < 0.8) {
-        this.flashTimer = 12 + Math.floor(Math.random() * 28); // 12..39 frames
-        this.flashTimerMax = this.flashTimer;
-      }
+    if (flashingEffectsEnabled) {
+        // occasionally trigger a lightning flash effect
+        // more frequent and longer flashes (larger, full-screen effect)
+        if(this.timer % 30 === 0){
+          if (Math.random() < 0.8) {
+            this.flashTimer = 12 + Math.floor(Math.random() * 28); // 12..39 frames
+            this.flashTimerMax = this.flashTimer;
+          }
+        }
     }
     if(this.flashTimer > 0) this.flashTimer--;
     if(this.timer % 65 === 0) recycles.push(new Recycle());
@@ -289,7 +295,7 @@ class Cloud{
       const cx = this.x + this.w/2;
       const cy = this.y + this.h/2;
       // if flashing, draw a soft radial glow behind the cloud
-      if(this.flashTimer > 0){
+      if(this.flashTimer > 0 && flashingEffectsEnabled){
         ctx.save();
         const grad = ctx.createRadialGradient(cx, cy, this.w*0.15, cx, cy, this.w*1.2);
         grad.addColorStop(0, 'rgba(255,255,224,0.65)');
@@ -306,7 +312,7 @@ class Cloud{
       ctx.drawImage(cloudImg,this.x,this.y,this.w,this.h);
 
       // draw quick lightning strokes around the cloud when flashing
-      if(this.flashTimer > 0){
+      if(this.flashTimer > 0 && flashingEffectsEnabled){
         for(let i=0;i<4;i++){
           const sx = this.x + Math.random() * this.w;
           const sy = this.y + Math.random() * 30;
@@ -442,10 +448,19 @@ document.getElementById('seizureAccept').addEventListener('click', ()=>{
   showReporterSprite = true;
   showDialog();
 });
-document.getElementById('seizureDecline').addEventListener('click', ()=>{
-  // go back to index (or simply reload); safer to redirect to homepage
-  window.location.href = 'index.html';
+document.getElementById('seizureDeclineFlashes').addEventListener('click', ()=>{
+  flashingEffectsEnabled = false;
+  document.getElementById('seizureAlert').classList.add('hidden');
+  seizureAlertActive = false;
+  // ensure dialog starts and inputs go to dialog state
+  currentDialogLine = 0;
+  showReporterSprite = true;
+  showDialog();
 });
+
+function goToMarPhase() {
+  window.location.href = 'mar.html';
+}
 
 /* ===== LOOP ===== */
 function loop(){
@@ -479,7 +494,7 @@ function loop(){
       // use a slightly larger hitbox for the emoji text and update cloud life bar
       if(collide(player.box(),{x:r.x,y:r.y,w:36,h:36})){
         // Reduce cloud life by 10 per recycle pick (steps of 10)
-        cloud.life = Math.max(0, cloud.life - 10);
+        cloud.life = Math.max(0, cloud.life - 5);
         recycles.splice(i,1);
         updateCloudBar();
       }
@@ -505,7 +520,7 @@ function loop(){
   recycles.forEach(r=>r.draw());
 
   // full-screen flash overlay when cloud is flashing (creates strong blink)
-  if (cloud.flashTimer > 0 && cloud.flashTimerMax > 0) {
+  if (flashingEffectsEnabled && cloud.flashTimer > 0 && cloud.flashTimerMax > 0) {
     const alpha = 0.15 + 0.55 * (cloud.flashTimer / cloud.flashTimerMax); // 0.15..0.7
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -516,19 +531,21 @@ function loop(){
 
   // victory / defeat handling
   const go = document.getElementById('gameOver');
+  const goTitle = document.getElementById('gameOverTitle');
+  const goMessage = document.getElementById('gameOverMessage');
+  const nextBtn = document.getElementById('nextPhaseBtn');
+
   if(player.life <= 0 && gameState !== 'over'){
-    go.innerHTML = `
-      <h1 id="gameOverTitle">😢 Você perdeu</h1>
-      <p id="gameOverMessage">A tempestade venceu. Tente novamente.</p>
-      <button onclick="location.reload()">Jogar Novamente</button>`;
+    goTitle.textContent = '😢 Você perdeu';
+    goMessage.textContent = 'A tempestade venceu. Tente novamente.';
+    nextBtn.style.display = 'none';
     go.classList.add('show');
     gameState = 'over';
   } else if(cloud.life <= 0 && gameState !== 'over'){
     // player wins
-    go.innerHTML = `
-      <h1 id="gameOverTitle">☀️ Parabéns!</h1>
-      <p id="gameOverMessage">Você venceu a tempestade com a reciclagem 🌱</p>
-      <button onclick="location.reload()">Jogar Novamente</button>`;
+    goTitle.textContent = '☀️ Parabéns!';
+    goMessage.textContent = 'Você venceu a tempestade com a reciclagem 🌱';
+    nextBtn.style.display = 'inline-block';
     go.classList.add('show');
     gameState = 'over';
     ctx.font = "140px Arial";

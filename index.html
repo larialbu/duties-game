@@ -159,9 +159,9 @@ startBossBtn.onclick = startBossBattle;
     // ====== CLASSES ======
     class Player {
       constructor(x,y){
-        this.x = x; this.y = y; this.width = 90; this.height = 90;
+        this.x = x; this.y = GROUND_Y - 90; this.width = 90; this.height = 90; // Sets y to be exactly on ground
         // visual offset to make the player sit slightly lower on the ground
-        this.groundOffset = 15;
+        this.groundOffset = 0; // No longer needed
         this.velocityY = 0; this.velocityX = 0; this.speed = 5; this.direction = 1;
         this.isMoving = false; this.currentItem = null; this.animationFrame = 0;
         this.isOnGround = true;
@@ -187,7 +187,7 @@ this.y += this.velocityY;
 
         this.isOnGround = false;
 
-        const groundLevel = GROUND_Y - this.height + this.groundOffset;
+        const groundLevel = GROUND_Y - this.height; // Aligns bottom of player with GROUND_Y
 
 if (this.y >= groundLevel) {
   this.y = groundLevel;
@@ -564,13 +564,14 @@ if (this.y >= groundLevel) {
 
     // ====== INICIALIZAÇÃO ======
     const player = new Player(100, GROUND_Y - 70);
-    // posicionado para ficar apoiado no chão considerando a nova altura do sprite e o groundOffset
-    player.y = GROUND_Y - player.height + player.groundOffset;
+    // The player's y is now handled by the Player constructor and update method.
+    // The groundOffset is set to 0 in the Player class, so this specific assignment is no longer needed.
+    // player.y = GROUND_Y - player.height + player.groundOffset; 
     const npc = new NPC(1050, GROUND_Y - 80);
     // aumentar visualmente a Garii e posicioná-la um pouco mais para baixo
     npc.height = 120;
     npc.width = 120; // aumentar largura conforme solicitado
-    npc.y = GROUND_Y - npc.height + 10; // 10px mais para baixo
+    npc.y = GROUND_Y - npc.height; // Aligns bottom of NPC with GROUND_Y
 
     let trash = [
       new Trash(250, GROUND_Y - 25, 'paper'),

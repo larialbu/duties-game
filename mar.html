@@ -35,7 +35,7 @@
     <button id="startBattleBtn">⚔️ Iniciar Batalha</button>
     <div id="ui">
       <div class="ui-row">
-        <span>Lixo Coletado: <span id="collectedCount">0</span> / 15</span>
+        <span>Lixo Coletado: <span id="collectedCount">0</span> / 20</span>
       </div>
     </div>
     <div id="playerHealthBar">
@@ -55,13 +55,16 @@
     <!-- Imagens pré-carregadas -->
     <img id="playerImg" src="imagem/AUGUSTINHO.01.gif" hidden>
     <img id="cientistaImg" src="imagem/cientista-removebg-preview.png" hidden>
-    <img id="protetorImg" src="imagem/tubarao.png" hidden>
+    <img id="cientistaPixelImg" src="imagem/cientistapixel.png" hidden>
     <img id="gosmaImg" src="imagem/gosma-removebg-preview.png" hidden>
     <img id="plasticoImg" src="imagem/garrafa.plastico.png" hidden>
-    <img id="barrilImg" src="imagem/lata.1.gif" hidden>
+    <img id="barrilImg" src="imagem/barril.png" hidden>
     <img id="papelImg" src="imagem/papel.png" hidden>
     <img id="lataImg" src="imagem/lata.1.gif" hidden>
     <img id="garrafaImg" src="imagem/garrafa.png" hidden>
+    <img id="sacolaImg" src="imagem/sacola.png" hidden>
+    <img id="protetorImg" src="imagem/protetor.png" hidden>
+
   </div>
 
   <script>
@@ -83,12 +86,13 @@
 
     let gameState = GAME_STATE.DIALOGUE;
 
-    const TOTAL_TRASH = 15;
+    const TOTAL_TRASH = 20;
     let collectedTrash = 0;
 
 
     const playerImg = document.getElementById('playerImg');
     const cientistaImg = document.getElementById('cientistaImg');
+    const cientistaPixelImg = document.getElementById('cientistaPixelImg');
     const protetorImg = document.getElementById('protetorImg');
     const gosmaImg = document.getElementById('gosmaImg');
     const plasticoImg = document.getElementById('plasticoImg');
@@ -96,6 +100,7 @@
     const papelImg = document.getElementById('papelImg');
     const lataImg = document.getElementById('lataImg');
     const garrafaImg = document.getElementById('garrafaImg');
+    const sacolaImg = document.getElementById('sacolaImg');
     const startBattleBtn = document.getElementById('startBattleBtn');
 
     // Helper to safely draw images only when fully loaded; draws fallback if missing
@@ -117,7 +122,7 @@
         }
     }
     // Attach error handlers so we can detect broken images early and optionally replace external fallbacks
-    [playerImg, cientistaImg, protetorImg, gosmaImg, plasticoImg, barrilImg, papelImg, lataImg, garrafaImg].forEach(img => {
+    [playerImg, cientistaImg, cientistaPixelImg, protetorImg, gosmaImg, plasticoImg, barrilImg, papelImg, lataImg, garrafaImg, sacolaImg].forEach(img => {
         img.addEventListener('error', () => {
             console.warn('Image failed to load:', img.id, img.src);
             img.dataset.broken = 'true';
@@ -182,11 +187,19 @@
     }
 
     class Boss {
-        constructor(x, y, img) { this.x = x; this.y = y; this.width = 150; this.height = 150; this.img = img; this.attackCooldown = 240; this.aggression = 1.0; }
+        constructor(x, img) { 
+            this.x = x; 
+            this.width = 250; 
+            this.height = 250; 
+            this.y = GROUND_Y - this.height; // Align to ground
+            this.img = img; 
+            this.attackCooldown = 200; 
+            this.aggression = 1.0; 
+        }
         update() {
             this.attackCooldown--;
             if (this.attackCooldown <= 0) {
-                projectiles.push(new Projectile(this.x, this.y + this.height / 2, 'left'));
+                projectiles.push(new Projectile(this.x, this.y + this.height / 2 + 20, 'left'));
                 // Base interval between attacks (frames). Higher aggression => faster attacks (smaller cooldown).
                 const base = 180 + Math.random() * 120; // ~3s to 5s at 60fps
                 this.attackCooldown = Math.max(30, Math.floor(base / this.aggression));
@@ -197,14 +210,23 @@
     }
 
     class Trash {
-     constructor(x, y, type) { 
+     constructor(x, type) { 
         this.x = x; 
-        this.y = y; 
         this.type = type; 
-        this.width = 100; 
-        this.height = 100; 
-        this.img = this.getImage(); 
+        
+        switch(this.type) {
+            case 'plastico': this.width = 80; this.height = 110; break;
+            case 'barril': this.width = 70; this.height = 70; break;
+            case 'lata': this.width = 140; this.height = 140; break;
+            case 'papel': this.width = 140; this.height = 140; break;
+            case 'garrafa': this.width = 100; this.height = 130; break;
+            case 'sacola': this.width = 70; this.height = 70; break;
+            default: this.width = 100; this.height = 100; break; // Fallback
         }
+        this.y = GROUND_Y - this.height; // Align bottom with ground
+
+        this.img = this.getImage(); 
+     }
         getImage() {
             switch(this.type) {
                 case 'plastico': return plasticoImg;
@@ -212,6 +234,7 @@
                 case 'lata': return lataImg;
                 case 'papel': return papelImg;
                 case 'garrafa': return garrafaImg;
+                case 'sacola': return sacolaImg;
                 default: return plasticoImg;
             }
         }
@@ -225,7 +248,7 @@
         this.y = y; 
         this.width = 50; 
         this.height = 50; 
-        this.speed = 5 + Math.random() * 2; 
+        this.speed = 8 + Math.random() * 2; 
         this.velocityX = direction === 'left' ? -this.speed : this.speed; 
     }ww
 
@@ -243,8 +266,8 @@
 
     // ====== GAME LOGIC & STATE ======
     const player = new Player(100, GROUND_Y - 90);
-    const cientista = new Npc(950, GROUND_Y - 120, cientistaImg);
-    const protetor = new Boss(1000, GROUND_Y - 150, protetorImg);
+    const cientista = new Npc(950, GROUND_Y - 120, cientistaPixelImg);
+    const protetor = new Boss(1000, protetorImg);
     
     let trashItems = [];
     let projectiles = [];
@@ -345,10 +368,9 @@
    function spawnTrash() {
     if (trashItems.length < 5) {
         const x = Math.random() * (canvas.width - 60);
-        const y = GROUND_Y - 90; // MESMA ALTURA DO PERSONAGEM
-        const types = ['plastico', 'barril', 'papel', 'lata', 'garrafa'];
+        const types = ['plastico', 'barril', 'papel', 'lata', 'garrafa', 'sacola'];
         const type = types[Math.floor(Math.random() * types.length)];
-        trashItems.push(new Trash(x, y, type));
+        trashItems.push(new Trash(x, type));
     }
 }
 
@@ -410,35 +432,35 @@ else if (gameState === GAME_STATE.BATTLE) {
 
             projectiles.forEach((p, i) => {
                 p.update(); p.draw();
-                if (checkCollision(player.getCollisionBox(), p.getCollisionBox())) { projectiles.splice(i, 1); player.takeDamage(10); }
+                if (checkCollision(player.getCollisionBox(), p.getCollisionBox())) { projectiles.splice(i, 1); player.takeDamage(15); }
                 else if (p.x < 0) projectiles.splice(i, 1);
             });
             
             waterProjectiles.forEach((wp, i) => {
                 wp.update(); wp.draw();
-                if (checkCollision(protetor.getCollisionBox(), wp.getCollisionBox())) { protetor.attackCooldown += 50; waterProjectiles.splice(i, 1); }
+                if (checkCollision(protetor.getCollisionBox(), wp.getCollisionBox())) { protetor.attackCooldown += 30; waterProjectiles.splice(i, 1); }
                 else if (wp.x > canvas.width || wp.x < 0) waterProjectiles.splice(i, 1);
             });
 
-            if (player.health <= 0) showGameOver(false, "O oceano não pôde ser salvo... Tente novamente.");
+            if (player.health <= 0) showGameOver(false, "Você não conseguiu acalmar a fúria do protetor... Tente novamente.");
         }
         
         if (gameState !== GAME_STATE.GAME_OVER) requestAnimationFrame(gameLoop);
     }
 
     const dialogLines = [
-        "A poluição dos mares aumentou drasticamente pela negligência humana.",
-        "O Protetor dos Mares, uma entidade ancestral, enlouqueceu com tanta destruição.",
-        "Vi suas vitórias e sei que pode nos ajudar. Acalme o Protetor limpando o oceano!"
+        "Olá Augustinho! Eu sou um cientista que estuda o oceano e a vida marinha. Decidi pedir sua ajuda devido a uma situação urgente.",
+        "O Protetor dos Mares, uma entidade ancestral, enlouqueceu com tanta destruição. E você deve acalmar ele para que a vida marinha possa prosperar novamente.",
+        "Para ajudar ele é simples, você vai precisar coletar os materiais recicláveis que foram parar na areia da praia, assim, acalmando o protetor! Boa sorte, Augustinho!"
     ];
 
     const endDialogLines = [
-  "Você conseguiu... O oceano volta a respirar.",
-  "Por muito tempo lutei tomado pela dor e pela poluição.",
-  "Mas suas ações mostraram que ainda há esperança para os mares.",
-  "Cada lixo recolhido salvou vidas marinhas e restaurou o equilíbrio.",
-  "Leve essa mensagem ao mundo humano: cuidar do oceano é cuidar da vida.",
-  "Obrigado, guardião dos mares."
+  "Muito obrigado por me mostrar que ainda existem pessoas como você que se esforçam para salvar o meu lar.",
+  "Espero que você continue sua jornada em busca de libertar o meio ambiente!",
+  "O mundo precisa de você e da iniciativa de cada pessoa no planeta para proteger ele.",
+  "Estarei sempre te apoiando nessa jornada.",
+  "Leve essa mensagem ao mundo humano: cuidar do oceano é cuidar da vida. Pois a poluição afeta a todos nós de todas as formas.",
+  "Obrigado, Augustinho. Espero que mais pessoas sejam que nem você."
 ];
 
     
