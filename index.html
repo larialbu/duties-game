@@ -3,946 +3,138 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- Prevent aggressive caching during development -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>Jogo de Reciclagem</title>
+  <title>DUTIES</title>
+
   <style>
-    /* (mantive seu CSS original, com leves ajustes se necessário) */
     *{margin:0;padding:0;box-sizing:border-box}
+
     body{
       font-family:Arial, sans-serif;
       background:linear-gradient(135deg,#87CEEB 0%,#E0F6FF 100%);
-      display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      min-height:100vh;
+      overflow:hidden;
     }
-    #gameContainer{position:relative;width:1200px;height:600px;background:linear-gradient(to bottom,#87CEEB 0%,#90EE90 70%,#228B22 100%);border:5px solid #333;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.3);overflow:hidden}
-    canvas{display:block;background:inherit}
-    #ui{position:absolute;top:20px;left:20px;right:20px;color:white;font-size:18px;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5);z-index:10}
-    .ui-row{display:flex;justify-content:space-between;margin-bottom:15px;background:rgba(0,0,0,0.3);padding:10px 15px;border-radius:5px}
-    /* Dialog card: white background with black text (Garii speaking) */
-    #dialog{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#ffffff;color:#000000;padding:20px 24px;border-radius:10px;max-width:600px;text-align:left;z-index:20;border:3px solid #FFD700;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.12)}
-    #dialog.show{display:block;animation:slideUp .3s ease-out}
-    @keyframes slideUp{from{transform:translateX(-50%) translateY(100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
-    #bossBar{position:absolute;top:80px;right:20px;background:rgba(0,0,0,0.3);padding:10px;border-radius:5px;display:none;z-index:15}
 
-    .health-bar{width:200px;height:30px;background:#333;border:2px solid white;border-radius:5px;overflow:hidden;margin-top:5px}
-    .health-fill{height:100%;background:linear-gradient(90deg,#FF6B6B,#FF8C42);width:100%;transition:width 0.2s}
-    .instructions{position:absolute;bottom:20px;right:20px;background:rgba(0,0,0,0.7);color:white;padding:15px;border-radius:5px;font-size:14px;text-align:right;max-width:250px;z-index:5}
-    .key{background:#FFD700;color:black;padding:2px 6px;border-radius:3px;font-weight:bold;margin:0 2px}
-    #gameOver{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:white;padding:40px;border-radius:10px;text-align:center;display:none;z-index:100;border:5px solid #FFD700}
-    #gameOver.show{display:block;animation:zoomIn .4s ease-out}
-    @keyframes zoomIn{from{transform:translate(-50%,-50%) scale(.5);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
-    #gameOver h1{font-size:48px;margin-bottom:20px}
-    #gameOver p{font-size:24px;margin-bottom:30px}
-    #gameOver button{background:#4CAF50;color:white;border:none;padding:12px 30px;font-size:18px;border-radius:5px;cursor:pointer}
-    #gameOver button:hover{background:#45a049}
-    /* Button variants for game over actions */
-    #gameOver .btn-primary{background:#4CAF50}
-    #gameOver .btn-primary:hover{background:#45a049}
-    #gameOver .btn-secondary{background:#2196F3}
-    #gameOver .btn-secondary:hover{background:#1976D2}
+    #gameContainer{
+      position:relative;
+      width:1200px;
+      height:600px;
+      background:linear-gradient(to bottom,#87CEEB 0%,#90EE90 70%,#228B22 100%);
+      border:5px solid #333;
+      border-radius:10px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.3);
+      overflow:hidden;
+    }
+
+    canvas{display:block}
+
+    /* ================= TELA DE INÍCIO ================= */
+    #startScreen{
+      position:absolute;
+      inset:0;
+      background:linear-gradient(135deg,#87CEEB 0%,#90EE90 100%);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+      z-index:200;
+    }
+
+    #startScreen h1{
+      font-size:80px;
+      color:#1b5e20;
+      text-shadow:4px 4px 0 rgba(0,0,0,0.25);
+      margin-bottom:20px;
+    }
+
+    #startScreen p{
+      font-size:20px;
+      color:#2e7d32;
+      max-width:600px;
+      margin-bottom:40px;
+    }
+
+    #startScreen button{
+      padding:18px 60px;
+      font-size:22px;
+      font-weight:bold;
+      background:#4CAF50;
+      color:white;
+      border:none;
+      border-radius:12px;
+      cursor:pointer;
+      box-shadow:0 8px 20px rgba(0,0,0,0.3);
+      transition:transform .2s, background .2s;
+    }
+
+    #startScreen button:hover{
+      background:#43a047;
+      transform:scale(1.08);
+    }
   </style>
 </head>
+
 <body>
-  <button id="startBossBtn" style="
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%, -50%);
-  padding:16px 32px;
-  font-size:20px;
-  font-weight:bold;
-  background:#FF6B6B;
-  color:white;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-  z-index:50;
-  display:none;
-">
-⚔️ Iniciar Batalha
-</button>
 
-  <div id="gameContainer">
-    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+<div id="gameContainer">
 
-    <div id="ui">
-      <div class="ui-row">
-        <span>Erros: <span id="errorCount">0</span>/3</span>
-        <span id="itemCount">Item: Nenhum</span>
-        <span>Coletados: <span id="collectedCount">0</span>/4</span>
-      </div>
-    </div>
-
-    <div id="playerBar" class="health-bar" style="position:absolute; top: 80px; left: 20px; display:none;">
-        <div class="health-fill" id="playerHealth" style="background: linear-gradient(90deg, #4CAF50, #8BC34A);"></div>
-    </div>
-
-    <div id="bossBar">
-      <div style="color:white;margin-bottom:5px;">👹 Mega-Lixeira Caótica</div>
-      <div class="health-bar"><div class="health-fill" id="bossHealth"></div></div>
-    </div>
-
-    <div id="dialog"></div>
-
-    <div id="gameOver">
-      <h1 id="gameOverTitle">Fase Completa!</h1>
-      <p id="gameOverMessage">Parabéns! Você completou a missão!</p>
-      <div style="display:flex;gap:10px;justify-content:center">
-        <button onclick="location.reload()" class="btn-primary">Jogar Novamente</button>
-        <button id="nextPhaseBtn" onclick="goToNextPhase()" class="btn-secondary" style="display:none">Ir para a próxima fase</button>
-      </div>
-    </div>
-
-    <div class="instructions">
-      <p><span class="key">W</span> Pular</p>
-      <p><span class="key">A</span> <span class="key">D</span> Mover</p>
-      <p><span class="key">E</span> Interagir / Depositar</p>
-      <p><span class="key">F</span> Atirar (na batalha)</p>
-    </div>
-    <img id="playerSpriteImg" src="imagem/AUGUSTINHO.01.gif" alt="player-sprite" style="position:absolute; left:-9999px; top:-9999px; width:80px; height:70px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="metalSpriteImg" src="imagem/lata.1.gif" alt="metal-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="npcSpriteImg" src="imagem/garii.pixel.gif" alt="npc-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:120px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="gariiPngImg" src="imagem/gariii.gif" alt="garii-avatar" style="position:absolute; left:-9999px; top:-9999px; width:180px; height:160px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="treeImg" src="imagem/arvore.png" alt="tree-sprite" style="position:absolute; left:-9999px; top:-9999px; width:260px; height:320px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="cloudImg" src="imagem/nuvem.png" alt="cloud-sprite" style="position:absolute; left:-9999px; top:-9999px; width:200px; height:120px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="bin_paper_img" src="imagem/lixeira.azul-removebg-preview.png" alt="bin-paper" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="paperSpriteImg" src="imagem/papel.png" alt="paper-sprite" style="position:absolute; left:-9999px; top:-9999px; width:140px; height:140px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="glassSpriteImg" src="imagem/garrafa.png" alt="glass-sprite" style="position:absolute; left:-9999px; top:-9999px; width:100px; height:130px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="plasticSpriteImg" src="imagem/garrafa.plastico.png" alt="plastic-sprite" style="position:absolute; left:-9999px; top:-9999px;  width:100px; height:130px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="bin_plastic_img" src="imagem/lixeira.vermelha-removebg-preview.png" alt="bin-plastic" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="bin_glass_img" src="imagem/lixeira.verde-removebg-preview.png" alt="bin-glass" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="bin_metal_img" src="imagem/lixeira.amarela.png" alt="bin-metal" style="position:absolute; left:-9999px; top:-9999px; " aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
-    <img id="bossSpriteImg" src="imagem/lixeira.luta.png" alt="boss-sprite" style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" onerror="console.warn('Image failed to load:', this.id, this.src)" />
+  <!-- ===== TELA DE INÍCIO ===== -->
+  <div id="startScreen">
+    <h1>DUTIES</h1>
+    <p>Ajude Augustinho a combater os problemas causados pela crueldade humana no nosso planeta para o mundo se tornar um lugar melhor!</p>
+    <button id="startGameBtn">▶ Iniciar</button>
   </div>
 
-  <script>
-    // ====== CONFIG ======
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const GROUND_Y = 475;
-    const GRAVITY_UP = 0.65;     // gravidade enquanto sobe (mais leve)
-const GRAVITY_DOWN = 1.1;   // gravidade na queda (mais pesada)
-const JUMP_FORCE = -15;     // impulso inicial mais forte
+  <!-- ===== JOGO ===== -->
+  <canvas id="gameCanvas" width="1200" height="600"></canvas>
 
-    const GAME_STATE = { PLAYING:'playing', BOSS_BATTLE:'boss_battle', DIALOGUE:'dialogue', GAME_OVER:'game_over' };
-    let gameState = GAME_STATE.DIALOGUE;
-    let errors = 0;
-    let itemsCollected = 0;
+</div>
 
-    const itemEmojis = {
-      paper: '📄', // folha de papel
-      plastic: '🧴', // garrafa de plástico
-      glass: '🍾', // garrafa de vidro
-      metal: '🥫' // lata de metal
-    };
+<script>
+  /* ================= CONTROLE DE INÍCIO ================= */
+  const startScreen = document.getElementById('startScreen');
+  const startGameBtn = document.getElementById('startGameBtn');
 
-    // Sprites do jogador, lata e NPC (usamos as imagens presentes no DOM para garantir animação dos GIFs)
-    const playerSprite = document.getElementById('playerSpriteImg');
-    const metalSprite = document.getElementById('metalSpriteImg');
-    const npcSprite = document.getElementById('npcSpriteImg');
-    const binPaperImg = document.getElementById('bin_paper_img');
-    const paperSprite = document.getElementById('paperSpriteImg');
-    const glassSprite = document.getElementById('glassSpriteImg');
-    const plasticSprite = document.getElementById('plasticSpriteImg');
-    const binPlasticImg = document.getElementById('bin_plastic_img');
-    const binGlassImg = document.getElementById('bin_glass_img');
-    const binMetalImg = document.getElementById('bin_metal_img');
-    const treeSprite = document.getElementById('treeImg');
-    const cloudSprite = document.getElementById('cloudImg');
-    const gariiPngSprite = document.getElementById('gariiPngImg');
-    const bossSprite = document.getElementById('bossSpriteImg');
-    const startBossBtn = document.getElementById('startBossBtn');
-startBossBtn.onclick = startBossBattle;
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
 
-    // ====== CLASSES ======
-    class Player {
-      constructor(x,y){
-        this.x = x; this.y = GROUND_Y - 90; this.width = 90; this.height = 90; // Sets y to be exactly on ground
-        // visual offset to make the player sit slightly lower on the ground
-        this.groundOffset = 0; // No longer needed
-        this.velocityY = 0; this.velocityX = 0; this.speed = 5; this.direction = 1;
-        this.isMoving = false; this.currentItem = null; this.animationFrame = 0;
-        this.isOnGround = true;
-        this.health = 100; this.maxHealth = 100;
-      }
-      update(keys){
-        this.velocityX = 0; this.isMoving = false;
-        if (keys['a']||keys['A']){ this.velocityX = -this.speed; this.direction = -1; this.isMoving = true; }
-        if (keys['d']||keys['D']){ this.velocityX = this.speed; this.direction = 1; this.isMoving = true; }
+  let gameStarted = false;
 
-        this.x += this.velocityX;
-        if (this.x < 0) this.x = 0;
-        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+  startGameBtn.addEventListener('click', () => {
+    window.location.href = 'jogodolixo.html';
+  });
 
-       // Gravidade diferente para subida e queda
-if (this.velocityY < 0) {
-  this.velocityY += GRAVITY_UP;     // subindo (fica mais tempo no ar)
-} else {
-  this.velocityY += GRAVITY_DOWN;   // caindo (cai mais rápido)
-}
-
-this.y += this.velocityY;
-
-        this.isOnGround = false;
-
-        const groundLevel = GROUND_Y - this.height; // Aligns bottom of player with GROUND_Y
-
-if (this.y >= groundLevel) {
-  this.y = groundLevel;
-  this.velocityY = 0;
-  this.isOnGround = true;
-}
-
-        if (this.isMoving && this.isOnGround) this.animationFrame += 0.2;
-      }
-
-   jump(){
-  if (this.isOnGround) {
-    this.velocityY = JUMP_FORCE;
-    this.isOnGround = false;
-  }
-}
-
-
-      draw(){
-        ctx.save();
-        // Flip drawing horizontally when facing right (sprite art faces left by default)
-        // Invert compared to original so the GIF orientation matches movement
-        if (this.direction === 1){
-          ctx.translate(this.x + this.width, this.y);
-          ctx.scale(-1, 1);
-          ctx.translate(-this.x, -this.y);
-        }
-
-        // Desenha sprite (quando carregado) ou fallback geométrico
-        if (playerSprite && playerSprite.complete){
-          ctx.drawImage(playerSprite, this.x, this.y, this.width, this.height);
-        } else {
-          // fallback
-          ctx.fillStyle = '#3a8d9d'; // corpo
-          ctx.fillRect(this.x + 10, this.y + 20, 20, 25);
-          ctx.fillStyle = '#ffc3a0'; // cabeça
-          ctx.beginPath(); ctx.arc(this.x + 20, this.y + 10, 12, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#4a3d35'; ctx.beginPath(); ctx.arc(this.x + 20, this.y + 8, 12, Math.PI, Math.PI*2); ctx.fill();
-          ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 3, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(this.x + 16, this.y + 8, 1, 0, Math.PI * 2); ctx.fill();
-          let legOffset = 0; if (this.isOnGround) legOffset = Math.sin(this.animationFrame) * 5;
-          ctx.fillStyle = '#3a8d9d'; ctx.fillRect(this.x + 10, this.y + 45, 8, 10 - legOffset); ctx.fillRect(this.x + 22, this.y + 45, 8, 10 + legOffset);
-        }
-
-        ctx.restore();
-
-        // se estiver carregando item, desenha acima do player
-        if (this.currentItem) {
-          const cx = this.x + this.width / 2;
-          let cy = this.y - 20;
-            // Para itens grandes (ex: lata/metal ou papel grande), posiciona o centro do item acima da cabeça do jogador
-            if ((this.currentItem.type === 'metal' && metalSprite && metalSprite.complete) ||
-                (this.currentItem.type === 'paper' && paperSprite && paperSprite.complete)) {
-              const mh = 140; // deve corresponder ao tamanho usado ao desenhar o item grande
-              cy = this.y - mh / 2 - 10; // 10px de folga acima da cabeça
-            } else if (this.currentItem.type === 'glass' && glassSprite && glassSprite.complete) {
-              const gh = 130;
-              cy = this.y - gh / 2 - 10; // folga ajustada para garrafa maior
-            } else if (this.currentItem.type === 'plastic' && plasticSprite && plasticSprite.complete) {
-              const ph = 110;
-              cy = this.y - ph / 2 - 8; // posicionamento para garrafa plástica
-            }
-          drawItem(cx, cy, this.currentItem.type);
-        }
-      }
-
-      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-      pickItem(item){ if (!this.currentItem){ this.currentItem = item; return true; } return false; }
-      dropItem(){ const dropped = this.currentItem; this.currentItem = null; return dropped; }
-      takeDamage(amount){
-        this.health -= amount; if (this.health < 0) this.health = 0; updatePlayerHealth();
-      }
-    }
-
-    class Trash {
-      constructor(x,y,type){
-        this.x = x; this.y = y; this.type = type;
-        // size items to match sprites and center them on the ground
-        if (type === 'metal' || type === 'paper') { this.width = 140; this.height = 140; this.y = GROUND_Y - this.height/2; }
-        else if (type === 'glass') { this.width = 100; this.height = 130; this.y = GROUND_Y - this.height/2; }
-        else if (type === 'plastic') { this.width = 80; this.height = 110; this.y = GROUND_Y - this.height/2; }
-        else { this.width = 30; this.height = 30; }
-        this.collected = false; this.delivered = false;
-      }
-      draw(){ if (!this.collected && !this.delivered){ drawItem(this.x, this.y, this.type); } }
-      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-    }
-
-    class Bin {
-      constructor(x,y,correctType){
-        this.x=x; this.y=y; this.width=50; this.height=70; this.correctType=correctType; this.color=getBinColor(correctType);
-        // tornar algumas lixeiras mais largas para evitar aparência comprimida
-        if (this.correctType === 'metal') { this.width = 80; this.height = 80; }
-        if (this.correctType === 'glass') { this.width = 80; this.height = 80; }
-        if (this.correctType === 'plastic') { this.width = 80; this.height = 80; }
-        if (this.correctType === 'paper') { this.width = 80; this.height = 80; }
-        
-      }
-      draw(){
-        // Use specific bin images if provided, otherwise draw vector box
-        if (this.correctType === 'paper' && typeof binPaperImg !== 'undefined' && binPaperImg && binPaperImg.complete) {
-          ctx.drawImage(binPaperImg, this.x, this.y, this.width, this.height);
-          return;
-        }
-
-        if (this.correctType === 'plastic' && typeof binPlasticImg !== 'undefined' && binPlasticImg && binPlasticImg.complete) {
-          ctx.drawImage(binPlasticImg, this.x, this.y, this.width, this.height);
-          return;
-        }
-
-        if (this.correctType === 'glass' && typeof binGlassImg !== 'undefined' && binGlassImg && binGlassImg.complete) {
-          ctx.drawImage(binGlassImg, this.x, this.y, this.width, this.height);
-          return;
-        }
-
-        if (this.correctType === 'metal' && typeof binMetalImg !== 'undefined' && binMetalImg && binMetalImg.complete) {
-          ctx.drawImage(binMetalImg, this.x, this.y, this.width, this.height);
-          return;
-        }
-
-        // corpo da lixeira (fallback)
-        ctx.fillStyle=this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-
-        // Detalhe da tampa
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.beginPath(); ctx.rect(this.x, this.y, this.width, 10); ctx.fill();
-
-        // Abertura
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x + 10, this.y + 15, this.width - 20, 5);
-
-        // Símbolo de reciclagem
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('♻', this.x + this.width/2, this.y + 45);
-
-        // Label
-        ctx.fillStyle='white'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
-        ctx.fillText(getBinLabel(this.correctType), this.x+this.width/2, this.y+this.height-10);
-      }
-      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-    }
-
-    class NPC {
-      constructor(x,y){ this.x = x; this.y = y; this.width = 64; this.height = 80; this.animationFrame = 0; }
-      update(){ this.animationFrame += 0.05; }
-      draw(){
-        const bobbing = Math.sin(this.animationFrame) * 2;
-        // Se houver sprite animada, desenha o GIF; senão, fallback vetorial
-        if (npcSprite && npcSprite.complete){
-          ctx.drawImage(npcSprite, this.x, this.y + bobbing, this.width, this.height);
-        } else {
-          // Cabeça
-          ctx.fillStyle = '#ffc3a0';
-          ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 10 + bobbing, 12, 0, Math.PI*2); ctx.fill();
-          // Cabelo
-          ctx.fillStyle = '#7a4d35';
-          ctx.beginPath(); ctx.arc(this.x + this.width/2, this.y + 8 + bobbing, 12, Math.PI, Math.PI*2); ctx.fill();
-          // Corpo
-          ctx.fillStyle = '#c9a98e';
-          ctx.fillRect(this.x + 10, this.y + 22 + bobbing, 20, 28);
-        }
-        // "E" de interação (sempre mostra)
-        ctx.fillStyle='#FFD700'; ctx.font='bold 20px Arial'; ctx.textAlign = 'center';
-        ctx.fillText('E', this.x + this.width/2, this.y - 10 + bobbing);
-      }
-      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-    }
-
-    class Boss {
-      constructor(){
-        this.width=120; this.height=140;
-        this.x=canvas.width - this.width - 50; this.y=GROUND_Y - this.height;
-        this.health=100; this.maxHealth=100; this.animationFrame=0; this.attackCooldown=120; // Starts with a delay
-      }
-      update(){
-        this.animationFrame += 0.05;
-        if (this.attackCooldown > 0) {
-          this.attackCooldown--;
-        } else {
-          // Shoots a projectile towards the player
-          const projectile = new Projectile(this.x, this.y + this.height/2, player.x, player.y, 'boss');
-          projectiles.push(projectile);
-          this.attackCooldown = 150 + Math.random() * 100; // Reset cooldown
-        }
-      }
-      draw(){
-        const shake = Math.sin(this.animationFrame*2)*3;
-        // Draw sprite if available
-        if (typeof bossSprite !== 'undefined' && bossSprite && bossSprite.complete) {
-            ctx.drawImage(bossSprite, this.x + shake, this.y, this.width, this.height);
-        } else {
-            // Fallback vector drawing
-            ctx.fillStyle='#6b4a3e'; ctx.fillRect(this.x+shake, this.y, this.width, this.height);
-            ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.strokeRect(this.x+shake, this.y, this.width, this.height);
-            // "olhos"
-            ctx.fillStyle='#FF0000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 15, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(this.x+40+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(this.x+80+shake, this.y+40, 7, 0, Math.PI*2); ctx.fill();
-            // "boca" (grade)
-            ctx.strokeStyle='#000'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(this.x+20+shake, this.y+90); ctx.lineTo(this.x+100+shake, this.y+90); ctx.stroke();
-            for(let i=0; i<6; i++) {
-              ctx.fillRect(this.x+20+i*15+shake, this.y+90, 4, 20);
-            }
-        }
-      }
-      getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-      takeDamage(amount){ this.health -= amount; if (this.health < 0) this.health = 0; }
-      isAlive(){ return this.health > 0; }
-    }
-    
-    class Projectile {
-        constructor(startX, startY, targetX, targetY, owner) {
-            this.x = startX;
-            this.y = startY;
-            this.width = 20;
-            this.height = 20;
-            this.owner = owner; // 'player' or 'boss'
-            this.type = owner === 'player' ? player.currentItem.type : ['paper', 'plastic', 'metal'][Math.floor(Math.random()*3)];
-            
-            this.speed = 8;
-            if(owner === 'player') {
-                this.velocityX = player.direction * this.speed;
-                this.velocityY = 0;
-            } else {
-                const angle = Math.atan2(targetY - startY, targetX - startX);
-                this.velocityX = Math.cos(angle) * this.speed;
-                this.velocityY = Math.sin(angle) * this.speed;
-            }
-        }
-
-        update() {
-            this.x += this.velocityX;
-            this.y += this.velocityY;
-        }
-
-        draw() {
-            drawItem(this.x, this.y, this.type);
-        }
-        
-        getCollisionBox(){ return { x:this.x, y:this.y, width:this.width, height:this.height }; }
-    }
-
-    // ====== AUX ======
-    function drawItem(x,y,type){
-      // Use paper image if available (large like the metal can)
-      if (type === 'paper' && paperSprite && paperSprite.complete) {
-        const w = 140, h = 140;
-        const offsetY = -10; // desloca um pouco para baixo (negativo -> desce)
-        ctx.drawImage(paperSprite, x - w/2, y - h/2 - offsetY, w, h);
-        return;
-      }
-      // Use glass image (bottle) if available
-      if (type === 'glass' && glassSprite && glassSprite.complete) {
-        const w = 100, h = 130;
-        const offsetY = -10;
-        ctx.drawImage(glassSprite, x - w/2, y - h/2 - offsetY, w, h);
-        return;
-      }
-
-      // Use plastic bottle image if available (slightly shifted to the right)
-      if (type === 'plastic' && plasticSprite && plasticSprite.complete) {
-        const w = 80, h = 110;
-        const offsetY = -28; // mais negativo => desenha mais para baixo
-        const offsetX = 28; // desloca mais para a direita para evitar sobreposição
-        ctx.drawImage(plasticSprite, x - w/2 + offsetX, y - h/2 - offsetY, w, h);
-        return;
-      }
-      // Se for metal e existir a imagem, desenha o GIF (mantém animação)
-      if (type === 'metal' && metalSprite && metalSprite.complete) {
-        const w = 140, h = 140;
-        const offsetY = -10; // desloca um pouco para baixo (negativo -> desce)
-        ctx.drawImage(metalSprite, x - w/2, y - h/2 - offsetY, w, h);
-        return;
-      }
-
-      const colors = { paper:'#FFF8DC', plastic:'#FF1493', glass:'#87CEEB', metal:'#C0C0C0' };
-      ctx.fillStyle = colors[type] || '#999';
-      ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth=2; ctx.stroke();
-
-      const emoji = itemEmojis[type] || '?';
-      ctx.font = '20px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(emoji, x, y);
-    }
-
-    function getBinColor(type){ const colors = { paper:'#1E90FF', plastic:'#DC143C', glass:'#228B22', metal:'#FFD700' }; return colors[type]; }
-    function getBinLabel(type){ const labels = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal' }; return labels[type]; }
-    function checkCollision(box1, box2){ return box1.x < box2.x + box2.width && box1.x + box1.width > box2.x && box1.y < box2.y + box2.height && box1.y + box1.height > box2.y; }
-    // Dialogue manager (supports speaker name, optional sprite and avatar size)
-    let activeDialogues = [];
-    let activeSpeaker = '';
-    let activeSpriteEl = null;
-    let activeAvatarSize = 48; // default avatar size in px
-    function showDialogueLine(index){
-      const dialog = document.getElementById('dialog');
-      const text = activeDialogues[index] || '';
-      if (activeSpeaker) {
-        // Prefer the provided PNG avatar, but fallback to the in-world NPC GIF if PNG is missing
-        let spriteToUse = null;
-        if (activeSpriteEl && activeSpriteEl.complete) {
-          spriteToUse = activeSpriteEl;
-        } else if (activeSpeaker === 'Garii' && npcSprite && npcSprite.complete) {
-          console.warn('garii PNG not available or not loaded, falling back to NPC GIF for dialogue avatar.');
-          spriteToUse = npcSprite;
-        }
-        const size = activeAvatarSize || 48;
-        const imgHtml = spriteToUse ? `<img src="${spriteToUse.src}" width="${size}" height="${size}" style="border-radius:6px;object-fit:cover"/>` : '';
-        dialog.innerHTML = `<div style="display:flex;align-items:center;gap:12px"><div>${imgHtml}</div><div><strong style="font-size:18px">${activeSpeaker}</strong><div style="margin-top:6px">${text}</div></div></div>`;
-      } else {
-        dialog.textContent = text;
-      }
-      dialog.classList.add('show');
-    }
-    function startDialogue(lines, speaker = '', spriteEl = null, avatarSize = 48, setState = true){
-      activeDialogues = Array.isArray(lines) ? lines : [lines];
-      activeSpeaker = speaker || '';
-      activeSpriteEl = spriteEl || null; // Use the provided sprite element
-      activeAvatarSize = avatarSize || 72; // Set default avatar size to 72px
-      currentDialogue = 0;
-      if (setState) gameState = GAME_STATE.DIALOGUE;
-
-      // If the intended avatar isn't loaded yet, refresh the current dialogue line when it finishes loading
-      if (activeSpriteEl && !activeSpriteEl.complete) {
-        activeSpriteEl.onload = () => { if (gameState === GAME_STATE.DIALOGUE) showDialogueLine(currentDialogue); };
-      } else if (!activeSpriteEl && activeSpeaker === 'Garii' && npcSprite && !npcSprite.complete) {
-        npcSprite.onload = () => { if (gameState === GAME_STATE.DIALOGUE) showDialogueLine(currentDialogue); };
-      }
-
-      showDialogueLine(0);
-    }
-    function hideDialogue(){ const d=document.getElementById('dialog'); d.classList.remove('show'); activeDialogues = []; activeSpeaker = ''; activeSpriteEl = null; }
-
-    // Redirect scheduler: legacy helper (kept for compatibility). It stores the timer so it can be canceled.
-    let _redirectScheduled = false;
-    let _redirectTimerId = null;
-    function scheduleRedirectToNuvem(delay = 1500) {
-      if (_redirectScheduled) return;
-      _redirectScheduled = true;
-      _redirectTimerId = setTimeout(() => { window.location.href = 'nuvem.html'; }, delay);
-    }
-    function cancelScheduledRedirect(){ if (_redirectTimerId) { clearTimeout(_redirectTimerId); _redirectTimerId = null; } _redirectScheduled = false; }
-
-    // Immediate navigation helper (used by the overlay button)
-    function goToNextPhase(){ window.location.href = 'nuvem.html'; }
-
-    function showGameOver(victory, message){
-      // Cancel any previously scheduled automatic redirect — we want the player to choose when to go to the next phase
-      cancelScheduledRedirect();
-      gameState = GAME_STATE.GAME_OVER; // restore visibility when the battle ends or mission finishes
-      showBins = true;
-      showNPC = true;
-      const overlay = document.getElementById('gameOver');
-      const title = document.getElementById('gameOverTitle');
-      const text = document.getElementById('gameOverMessage');
-      const nextBtn = document.getElementById('nextPhaseBtn');
-      if (victory){
-        title.textContent = '🎉 Fase Completa!';
-        title.style.color = '#4CAF50';
-        if (nextBtn) nextBtn.style.display = 'inline-block';
-      } else {
-        title.textContent = '💣 Missão Falhada!';
-        title.style.color = '#FF6B6B';
-        if (nextBtn) nextBtn.style.display = 'none';
-      }
-      text.textContent = message;
-      overlay.classList.add('show');
-    }
-
-    // ====== INICIALIZAÇÃO ======
-    const player = new Player(100, GROUND_Y - 70);
-    // The player's y is now handled by the Player constructor and update method.
-    // The groundOffset is set to 0 in the Player class, so this specific assignment is no longer needed.
-    // player.y = GROUND_Y - player.height + player.groundOffset; 
-    const npc = new NPC(1050, GROUND_Y - 80);
-    // aumentar visualmente a Garii e posicioná-la um pouco mais para baixo
-    npc.height = 120;
-    npc.width = 120; // aumentar largura conforme solicitado
-    npc.y = GROUND_Y - npc.height; // Aligns bottom of NPC with GROUND_Y
-
-    let trash = [
-      new Trash(250, GROUND_Y - 25, 'paper'),
-      new Trash(450, GROUND_Y - 25, 'plastic'),
-      new Trash(650, GROUND_Y - 25, 'glass'),
-      new Trash(850, GROUND_Y - 25, 'metal'),
-      // organic removed from game
-    ];
-
-    let bins = [
-      new Bin(250, GROUND_Y - 70, 'plastic'),
-      new Bin(400, GROUND_Y - 70, 'glass'),
-      new Bin(550, GROUND_Y - 70, 'metal'),
-      // organic replaced by paper (blue)
-      new Bin(700, GROUND_Y - 70, 'paper')
-    ];
-
-    // Visibility flags for gameplay (used to hide bins and NPC during boss battles)
-    let showBins = true;
-    let showNPC = true;
-
-    let boss = null;
-    let projectiles = [];
-    let trashSpawnTimer = 0;
-    let dialogues = [
-      ' O descarte incorreto do lixo é um problema grave porque o impacto não fica restrito apenas ao local onde o lixo foi jogado;',
-      'ele gera uma reação em cadeia que afeta a saúde, a economia e a natureza. Descartar o lixo incorretamente polui o solo, contamina a água e causa enchentes e doenças.',
-      'Quando você joga o resíduo no lugar certo e separa para a reciclagem, preserva a saúde pública e protege o meio ambiente.',
-      'Me ajude a proteger o planeta descartando corretamente o lixo. Vermelho: plástico , Verde: vidro, Azul: papel, Amarelo: metal'
-    ];
-    let currentDialogue = 0;
-
-    // teclas
-    const keys = {};
-    window.addEventListener('keydown', (e) => {
-      keys[e.key] = true;
-
-      // abrir/avançar diálogo
-      if ((e.key === 'e' || e.key === 'E') && gameState === GAME_STATE.DIALOGUE) {
-        currentDialogue++;
-        if (currentDialogue < activeDialogues.length) {
-          showDialogueLine(currentDialogue);
-        } else {
-          hideDialogue();
-          gameState = GAME_STATE.PLAYING;
-        }
-        return;
-      }
-
-      // Atirar no Boss
-      if ((e.key === 'f' || e.key === 'F') && gameState === GAME_STATE.BOSS_BATTLE) {
-          if(player.currentItem && boss && boss.isAlive()) {
-              const projectile = new Projectile(player.x + player.width/2, player.y + player.height/2, null, null, 'player');
-              projectiles.push(projectile);
-              player.dropItem();
-              updateUI();
-          }
-      }
-
-      // Pular
-      if ((e.key === 'w' || e.key === 'W') && player.isOnGround) {
-        player.jump();
-      }
-
-      // Interagir (pegar/depositar)
-      if ((e.key === 'e' || e.key === 'E')) {
-        if(gameState === GAME_STATE.PLAYING) {
-            // 1) se próximo a NPC e já coletou tudo -> finaliza
-            if (checkCollision(player.getCollisionBox(), npc.getCollisionBox())) {
-              if (itemsCollected >= 4) {
-                showGameOver(true, 'Parabéns! Você limpou toda a floresta!');
-                return;
-              } else {
-                // conversa com a Garii quando o jogador interage mas não terminou a missão
-                startDialogue(['Oi! Eu sou a Garii. Precisa de ajuda?','Pegue o lixo e coloque na lixeira certa. Se tiver dúvidas, venha falar comigo!'], 'Garii', gariiPngSprite);
-                return;
-              }
-            }
-    
-            // 2) pegar lixo
-            for (let t of trash) {
-              if (!t.collected && !t.delivered && checkCollision(player.getCollisionBox(), t.getCollisionBox())) {
-                if (player.pickItem(t)) {
-                  t.collected = true;
-                  updateUI();
-                  return;
-                }
-              }
-            }
-    
-            // 3) depositar
-            if (player.currentItem) {
-              for (let b of bins) {
-                const distance = Math.hypot((player.x + player.width/2) - (b.x + b.width/2), (player.y + player.height/2) - (b.y + b.height/2));
-                if (distance < 60) {
-                  if (player.currentItem.type === b.correctType) {
-                    const deliveredTrash = player.dropItem();
-                    deliveredTrash.delivered = true;
-                    itemsCollected++;
-                    updateUI();
-                    if (itemsCollected >= 4) {
-                      showGameOver(true, 'Parabéns! Você limpou toda a floresta!');
-                    }
-                  } else {
-                    const dropped = player.dropItem();
-                    if(dropped) {
-                      dropped.collected = false;
-                      dropped.x = b.x + b.width / 2;
-                      // Ajusta a posição de queda para itens grandes (como metal)
-                      if (dropped.type === 'metal') {
-                        dropped.y = b.y - dropped.height/2 - 10;
-                      } else {
-                        dropped.y = b.y - 30;
-                      }
-                    }
-                    errors++;
-                    updateUI();
-                                                            if (errors >= 3 && gameState !== GAME_STATE.BOSS_BATTLE) {
-  gameState = GAME_STATE.PLAYING; // pausa no modo normal
-  startBossBtn.style.display = 'block';
-
-  startDialogue(
-    ['⚠️ Você cometeu muitos erros! Prepare-se para enfrentar a Mega-Lixeira.'],
-    '',
-    null,
-    48,
-    false
-  );
-}
-                }
-                  return;
-                }
-              }
-            }
-        } else if (gameState === GAME_STATE.BOSS_BATTLE) {
-            // Pegar lixo durante a batalha
-            for (let t of trash) {
-              if (!t.collected && checkCollision(player.getCollisionBox(), t.getCollisionBox())) {
-                if (player.pickItem(t)) {
-                  t.collected = true;
-                  // Remove o lixo da lista principal para não ser desenhado mais
-                  trash = trash.filter(item => item !== t);
-                  updateUI();
-                  return;
-                }
-              }
-            }
-        }
-      }
-    });
-
-    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
-
-    function updateUI(){
-      document.getElementById('errorCount').textContent = errors;
-      document.getElementById('collectedCount').textContent = itemsCollected;
-      let itemText = 'Item: Nenhum';
-      if (player.currentItem){
-        const names = { paper:'Papel', plastic:'Plástico', glass:'Vidro', metal:'Metal' };
-        itemText = 'Item: ' + names[player.currentItem.type];
-      }
-      document.getElementById('itemCount').textContent = itemText;
-    }
-
-    function updateBossHealth(){
-      if (boss){
-        const healthPercent = (boss.health / boss.maxHealth) * 100;
-        document.getElementById('bossHealth').style.width = healthPercent + '%';
-      }
-    }
-    
-    function updatePlayerHealth(){
-      const healthPercent = (player.health / player.maxHealth) * 100;
-      document.getElementById('playerHealth').style.width = healthPercent + '%';
-    }
-    
-    // Nuvens para o cenário
-    let clouds = [
-        {x: 100, y: 80, size: 50, speed: 0.2},
-        {x: 400, y: 120, size: 70, speed: 0.3},
-        {x: 800, y: 90, size: 60, speed: 0.25},
-        {x: 1100, y: 150, size: 40, speed: 0.4},
-    ];
-
-    function drawCloud(cloud) {
-      // Se imagem disponível, desenha a nuvem como imagem (dimensionada pelo tamanho)
-      if (cloudSprite && cloudSprite.complete) {
-        const w = cloud.size * 3; // largura proporcional ao 'size'
-        const h = cloud.size * 2; // altura proporcional
-        ctx.drawImage(cloudSprite, cloud.x - w/2, cloud.y - h/2, w, h);
-        return;
-      }
-      // Fallback vetorial
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.beginPath();
-      ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
-      ctx.arc(cloud.x + cloud.size * 0.6, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
-      ctx.arc(cloud.x - cloud.size * 0.6, cloud.y, cloud.size * 0.7, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    
-    function drawTree(x, y) {
-      // Se houver imagem de árvore, desenha a imagem (alinhada à base do chão)
-      if (treeSprite && treeSprite.complete) {
-        const w = 260, h = 320;
-        const drawX = x - w/2;
-        const drawY = GROUND_Y - h + 10; // 10px de imersão no chão
-        ctx.drawImage(treeSprite, drawX, drawY, w, h);
-        return;
-      }
-      // Fallback vetorial (antiga árvore em CSS)
-      // Tronco
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(x, y, 20, 60);
-      // Copa
-      ctx.fillStyle = '#228B22';
-      ctx.beginPath();
-      ctx.arc(x + 10, y - 20, 40, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    function startBossBattle() {
-  gameState = GAME_STATE.BOSS_BATTLE;
-  boss = new Boss();
-  trash = [];
-  projectiles = [];
-  startBossBtn.style.display = 'none';
-  // Hide bins and NPC during the boss fight
-  showBins = false;
-  showNPC = false;
-
-  startDialogue(
-    ['👹 A MEGA-LIXEIRA CAÓTICA DESAFIA VOCÊ! Use o lixo como arma!'],
-    '',
-    null,
-    48,
-    false
-  );
-
-  updateBossHealth();
-  updatePlayerHealth();
-}
-
-
-    // ====== LOOP ======
-    function gameLoop(){
-      // Force health bars visibility based on game state
-      if (gameState === GAME_STATE.BOSS_BATTLE) {
-          document.getElementById('playerBar').style.display = 'block';
-          document.getElementById('bossBar').style.display = 'block';
-      } else {
-          document.getElementById('playerBar').style.display = 'none';
-          document.getElementById('bossBar').style.display = 'none';
-      }
-
-      // fundo
-      ctx.clearRect(0,0,canvas.width,canvas.height); // Limpa a tela
-      
-      let bgGradient = ctx.createLinearGradient(0,0,0,canvas.height);
-      if(gameState === GAME_STATE.BOSS_BATTLE) {
-          bgGradient.addColorStop(0, '#4a4a4a');
-          bgGradient.addColorStop(1, '#d66d75');
-      } else {
-          bgGradient.addColorStop(0, '#87CEEB');
-          bgGradient.addColorStop(1, '#90EE90');
-      }
-      ctx.fillStyle = bgGradient;
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      
-        // Desenha árvores de fundo (atrás de tudo)
-        drawTree(150, GROUND_Y - 60);
-        drawTree(950, GROUND_Y - 60);
-
-        // Nuvens
-        clouds.forEach(cloud => {
-          cloud.x += cloud.speed;
-          if(cloud.x - cloud.size > canvas.width) {
-            cloud.x = -cloud.size * 2;
-          }
-          drawCloud(cloud);
-        });
-
-      // Chão
-      ctx.fillStyle = gameState === GAME_STATE.BOSS_BATTLE ? '#5c4d4d' : '#6B8E23';
-      ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
-      
-      // Decoração do chão
-      ctx.fillStyle = 'rgba(0,0,0,0.05)';
-      for(let i = 0; i < 20; i++) {
-        ctx.beginPath();
-        ctx.arc(Math.random() * canvas.width, GROUND_Y + Math.random() * (canvas.height - GROUND_Y), 2, 0, Math.PI*2);
-        ctx.fill();
-      }
-
-      // updates
-      player.update(keys);
-
-      if (gameState === GAME_STATE.BOSS_BATTLE){
-        if(boss) boss.update();
-        
-        // Spawn de lixo (munição)
-        trashSpawnTimer--;
-        if(trashSpawnTimer <= 0) {
-            const randomX = Math.random() * (canvas.width - 100) + 50;
-            const trashTypes = ['paper', 'plastic', 'glass', 'metal'];
-            const randomType = trashTypes[Math.floor(Math.random() * trashTypes.length)];
-            trash.push(new Trash(randomX, GROUND_Y - 25, randomType));
-            trashSpawnTimer = 200 + Math.random() * 100; // a cada ~3-5s
-        }
-      }
-      
-      // Update e draw projéteis
-      for (let i = projectiles.length - 1; i >= 0; i--) {
-          const p = projectiles[i];
-          p.update();
-          p.draw();
-
-          // Checagem de colisão
-          if (p.owner === 'player' && boss && checkCollision(p.getCollisionBox(), boss.getCollisionBox())) {
-              boss.takeDamage(10);
-              updateBossHealth();
-              projectiles.splice(i, 1);
-              if (!boss.isAlive()) {
-                  document.getElementById('playerBar').style.display = 'none';
-                  document.getElementById('bossBar').classList.remove('show');
-                  showGameOver(true, 'Você derrotou a Mega-Lixeira Caótica e salvou a floresta!');
-                  gameState = GAME_STATE.GAME_OVER;
-              }
-          } else if (p.owner === 'boss' && checkCollision(p.getCollisionBox(), player.getCollisionBox())) {
-              player.takeDamage(20);
-              projectiles.splice(i, 1);
-              if(player.health <= 0) {
-                  showGameOver(false, "A Mega-Lixeira era forte demais! Tente novamente.");
-                  gameState = GAME_STATE.GAME_OVER;
-              }
-          }
-
-          // Remove projéteis fora da tela
-          if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
-              projectiles.splice(i, 1);
-          }
-      }
-
-      // Desenha elementos
-      if (gameState === GAME_STATE.BOSS_BATTLE) {
-          if (boss) boss.draw();
-          // Desenha o lixo disponível para coleta
-          for (let t of trash) t.draw();
-      } else {
-        drawTree(150, GROUND_Y - 60);
-        drawTree(950, GROUND_Y - 60);
-        for (let t of trash) t.draw();
-      }
-
-      // Desenha lixeiras e NPC somente se estiverem visíveis (controlado por startBossBattle/showGameOver)
-      if (showBins) {
-        for (let b of bins) b.draw();
-      }
-      if (showNPC) {
-        npc.draw();
-      }
-
-      player.draw();
-
+  /* ================= EXEMPLO DE LOOP (INTEGRE AO SEU) ================= */
+  function gameLoop(){
+    if(!gameStarted){
       requestAnimationFrame(gameLoop);
+      return;
     }
 
-    if (dialogues.length > 0) startDialogue(dialogues, 'Garii', gariiPngSprite);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    updateUI();
-    gameLoop();
-  </script>
+    // fundo
+    let bg = ctx.createLinearGradient(0,0,0,canvas.height);
+    bg.addColorStop(0,'#87CEEB');
+    bg.addColorStop(1,'#90EE90');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // texto exemplo
+    ctx.fillStyle = '#1b5e20';
+    ctx.font = '32px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Jogo em execução 🚀', canvas.width/2, canvas.height/2);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+</script>
+
 </body>
 </html>
